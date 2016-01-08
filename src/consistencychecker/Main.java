@@ -24,22 +24,18 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.HashMap;
-import java.util.Map;
 import java.util.Set;
 
-import org.eclipse.emf.ecore.EPackage;
 import org.eclipse.ocl.ParserException;
 import org.semanticweb.owlapi.model.OWLClass;
 import org.semanticweb.owlapi.model.OWLOntologyCreationException;
 import org.semanticweb.owlapi.model.OWLOntologyStorageException;
 
-import ecorexmiparser.TLink;
-import ecorexmiparser.TObject;
 import util.Constants;
 
 /**
  * @author Cassio Santos, Christiano Braga
- * @version 1.0.0
+ * @version 1.1.0
  * @since 1.0.0
  */
 public class Main {
@@ -73,37 +69,36 @@ public class Main {
 	private static final String HELP_ACKS_AVAILABLE_HERMIT = "http://www.hermit-reasoner.com/";
 	private static final String HELP_ACKS_AVAILABLE_DLLEARNER = "http://www.dl-learner.org/Projects/DLLearner";
 
-	//(In)Consistency messages
+	// (In)Consistency messages
 	private static final String MODEL_CONSISTENT = "The model %s is consistent";
 	private static final String MODEL_INCONSISTENT = "The model %s is inconsistent";
 	private static final String INCONSISTENTCLASSES = "The folowing classes are inconsistent";
 	private static final String INCONSISTENCYEXPLANATION = "The following axioms make %s class inconsistent:";
 
-	
-	//Error Message
+	// Error Message
 	private static final String FINAL_PARAM_ERR = "The final parameter must be a .ecore model or the -help parameter. \nFor more detailed instructions please use the -help parameter.";
 	private static final String UNKNOW_PARAM_ERR = "The parameter %s is unknow. Plese use the -help parameter to get a list of valids parameters.";
 	private static final String UNKNOW_XMI_ERR = "The parameter after the \"-extend\" parameter must be an .xmi model";
 	private static final String PARAM_ERR = "Incorrect number of parameters, please provide the model name. \nFor more detailed instructions please add the -help parameter.";
 	private static final String ONTOLOGY_CREATOR_ILL_FORMED_MODEL_ERROR = "The model is not well-formed.";
-	
-	//Explain Parameter messages
+
+	// Explain Parameter messages
 	private static final String CONSISTENCY_EXPLANATION = "The model is consistent, no explanation was generated.";
 	private static final String ONE_POSSIBLE_EXPLATION = "One possible explanation for %s inconsistency:";
 
-	//Utils
+	// Utils
 	private static final String NOTHING = "Nothing";
 	private static final String NOT = "not";
 	private static final String SEPARATOR = System.getProperty("path.separator");
 	private static final String JUMP_LINE = "\n";
-	
-	//Save Parameter messages
+
+	// Save Parameter messages
 	private static final String MODEL_SAVED = "Model saved as: %s";
-	
-	//Equiv Parameter messages
+
+	// Equiv Parameter messages
 	private static final String EQUIVALENCE_CLASSES = "\nEquivalence Classes:";
 	private static final String EMPTY_ONTOLOGY = "The resulting ontology is empty, no equivalence message was generated";
-	
+
 	// LOG messages
 	private static final String LOG_INITIALIZING = "Initializing consistencychecker at: ";
 	private static final String LOG_CHECK_PARAMETERS = "\nChecking command line parameters.";
@@ -177,6 +172,7 @@ public class Main {
 			final_parameter = args[args.length - 1];
 			if (final_parameter.equals(MINUS_HELP)) {
 				// The final parameter was help, so print all help messages
+				// on the standard out
 				System.out.println(HELP_USAGE);
 				System.out.println(HELP_EXTENDED);
 				System.out.println(HELP_OWL);
@@ -199,8 +195,8 @@ public class Main {
 					// prints error and exits
 					System.out.println(FINAL_PARAM_ERR);
 					System.exit(0);
-				}else{
-					//Assigns the last parameter to the input file variable
+				} else {
+					// Assigns the last parameter to the input file variable
 					input_file = final_parameter;
 				}
 			}
@@ -218,53 +214,46 @@ public class Main {
 		// Run through the command line attributes, setting Its respective
 		// "contains" variables to true if they're present
 		for (int i = 0; i < args.length - 1; i++) {
-			if (args[i].toLowerCase().equals(MINUS_OWL)) {
+			switch (args[i].toLowerCase()) {
+			case MINUS_OWL:
 				log.append(LOG_OWL_FOUND);
 				contains_owl = true;
-			} else {
-				if (args[i].toLowerCase().equals(MINUS_EXPLAIN)) {
-					log.append(LOG_EXPLAIN_FOUND);
-					contains_explain = true;
-				} else {
-					if (args[i].toLowerCase().equals(MINUS_EQUIV)) {
-						log.append(LOG_EQUIV_FOUND);
-						contains_equiv = true;
-					} else {
-						if (args[i].toLowerCase().equals(MINUS_EXTEND)) {
-							log.append(LOG_EXTEND_FOUND);
-							// Stores the object model position in the
-							// "contain_extends" variable
-							// And increases the loop counter
-							contains_extends = ++i;
-							if (!args[i].toLowerCase().endsWith(XMI_EXTENSION)) {
-								// If the parameter after the "-extend" is not
-								// an XMI File
-								// Than an error is printed and the program is
-								// terminated
-								System.err.println(String.format(UNKNOW_XMI_ERR, args[i]));
-								System.exit(-1);
-							}
-						} else {
-							if (args[i].toLowerCase().equals(MINUS_EXPLAINALL)) {
-								log.append(LOG_EXPLAINALL_FOUND);
-								contains_explainall = true;
-							} else {
-								if (args[i].toLowerCase().equals(MINUS_LOG)) {
-									log.append(LOG_LOG_FOUND);
-									contains_log = true;
-								} else {
-									// If there's no match no any parameter
-									// An error is exhibited and the program is
-									// terminated
-									log.append(LOG_UNKNOW_PARAM);
-									log.append(String.format(LOG_EXECUTION_TERMINATES, UNKNOW_PARAM_ERR));
-									System.err.println(String.format(UNKNOW_PARAM_ERR, args[i]));
-									System.exit(-1);
-								}
-							}
-						}
-					}
+				break;
+			case MINUS_EXPLAIN:
+				log.append(LOG_EXPLAIN_FOUND);
+				contains_explain = true;
+			case MINUS_EQUIV:
+				log.append(LOG_EQUIV_FOUND);
+				contains_equiv = true;
+			case MINUS_EXTEND:
+				log.append(LOG_EXTEND_FOUND);
+				// Stores the object model position in the
+				// "contain_extends" variable
+				// And increases the loop counter
+				contains_extends = ++i;
+				if (!args[i].toLowerCase().endsWith(XMI_EXTENSION)) {
+					// If the parameter after the "-extend" is not
+					// an XMI File
+					// Than an error is printed and the program is
+					// terminated
+					System.err.println(String.format(UNKNOW_XMI_ERR, args[i]));
+					System.exit(-1);
 				}
+				break;
+			case MINUS_EXPLAINALL:
+				log.append(LOG_EXPLAINALL_FOUND);
+				contains_explainall = true;
+			case MINUS_LOG:
+				log.append(LOG_LOG_FOUND);
+				contains_log = true;
+			default:
+				// If there's no match no any parameter
+				// An error is exhibited and the program is
+				// terminated
+				log.append(LOG_UNKNOW_PARAM);
+				log.append(String.format(LOG_EXECUTION_TERMINATES, UNKNOW_PARAM_ERR));
+				System.err.println(String.format(UNKNOW_PARAM_ERR, args[i]));
+				System.exit(-1);
 			}
 		}
 
@@ -302,25 +291,27 @@ public class Main {
 		checker.reason();
 		log.append(LOG_DONE_REASONING);
 
-		// Display the consistency check result
+		// Displays the consistency check result
 		String result_log = printConsistencyMessage();
 		log.append(result_log);
 
-		// Display the explanation message if requested in command line
+		// Displays the explanation message if requested in command line
 		// parameters
 		if (contains_explain || contains_explainall) {
 			String explain_result = printExplainMessage(contains_explainall);
 			log.append(explain_result);
 		}
 
-		// Display the equivalence classes if request in command line parameters
+		// Displays the equivalence classes if request in command line
+		// parameters
 		if (contains_equiv) {
 			String equiv_result = printEquivalentClasses();
 			log.append(equiv_result);
 		}
 
 		// If requested in command line, the Log file is generated.
-		// This parameter is not exhibited in help / usage messages as is intended
+		// This parameter is not exhibited in help / usage messages as is
+		// intended
 		// to be used for debbuging purposes only.
 		if (contains_log) {
 			BufferedWriter logFile = new BufferedWriter(new FileWriter(
@@ -330,19 +321,23 @@ public class Main {
 		}
 	}
 
+
 	/**
-	 * Display the equivalence classes reasoned the reasoner in the current usage
+	 * Displays the equivalence classes calculated in the current usage
+	 * 
+	 * @return Returns the logs messages genereted in the process.
 	 */
 	private static String printEquivalentClasses() {
 		StringBuilder log = new StringBuilder();
 		log.append(LOG_CREATING_EQUIVALENCE_MESSAGE);
 		try {
-			//Declares and sets the equivalentClasses variable
+			// Declares and sets the equivalentClasses variable
 			ArrayList<ArrayList<String>> equivalencyClasses = checker.getEquivalentClasses();
 			log.append(LOG_CREATED_EQUIVALENCE_MESSAGE);
 
 			log.append(LOG_STARTING_PRINTING_EQUIVALENCE);
-			//prints on the stdout if there are equivalent classes or not
+			// prints on the standard output if there are equivalent classes or
+			// not
 			if (equivalencyClasses.size() > 0) {
 				log.append("\n" + EQUIVALENCE_CLASSES);
 				System.out.println(EQUIVALENCE_CLASSES);
@@ -350,9 +345,10 @@ public class Main {
 				log.append("\n" + EMPTY_ONTOLOGY);
 				System.out.println(EMPTY_ONTOLOGY);
 			}
-			
-			//Print the equivalent classes as comma separeted lists
-			//Each list is delimited by a pair of brackets and is exhibited in one line
+
+			// Print the equivalent classes as comma separeted lists
+			// Each list is delimited by a pair of brackets and is exhibited in
+			// one line
 			for (ArrayList<String> arrayList : equivalencyClasses) {
 				log.append("\n" + "[");
 				System.out.print("[");
@@ -361,9 +357,9 @@ public class Main {
 						log.append(",");
 						System.out.print(",");
 					}
-					//To increase readability and keep preserve the language 
-					//used in publications on the subject, the class "Not"
-					//is always exhibited as "Nothing"
+					// To increase readability and preserve the language
+					// used in publications on the subject, the class "Not"
+					// is always exhibited as "Nothing"
 					if (arrayList.get(i).equals(NOT)) {
 						log.append(NOTHING);
 						System.out.print(NOTHING);
@@ -377,7 +373,7 @@ public class Main {
 			}
 			log.append(LOG_ENDED_PRINTING_EQUIVALENCE);
 		} catch (ConsistencyCheckerGenericException e) {
-			//Prints the stack trace in case of error
+			// Prints the stack trace in case of error
 			e.printStackTrace();
 		}
 		return log.toString();
@@ -394,15 +390,14 @@ public class Main {
 	private static String printConsistencyMessage() throws ConsistencyCheckerGenericException {
 		StringBuilder log = new StringBuilder();
 		log.append(LOG_CHECKING_CONSISTENCY);
-		// Verifies the model and/or object model consistency and display the
-		// appropriated message
+		// Verifies the model and/or object model consistency and
+		// displays the appropriated message
 		if (checker.checkConsistency()) {
 			log.append("\n" + String.format(MODEL_CONSISTENT, file_name));
 			System.out.println(String.format(MODEL_CONSISTENT, file_name));
 		} else {
-			// If the model is inconsistent besides the inconsistent message
-			// being displayed the inconsistent classes are also printed 
-			//in order to help debbuging the model.
+			// If the model is inconsistent the inconsistent classes
+			// are also printed to help debug the model.
 			log.append("\n" + String.format(MODEL_INCONSISTENT, file_name));
 			System.out.println(String.format(MODEL_INCONSISTENT, file_name));
 			log.append("\n" + INCONSISTENTCLASSES);
@@ -416,24 +411,44 @@ public class Main {
 	}
 
 	/**
-	 * Display an automatic explanation from the Reasoner about the
+	 * Displays an automatic explanation from the Reasoner about the
 	 * inconsistencies found in the ontology.
 	 * 
+	 * @param all
+	 *            Set to true to display all inconsistency explations for each
+	 *            class. Set to false to display only one explanation per class.
 	 * @throws ConsistencyCheckerGenericException
 	 */
 	private static String printExplainMessage(boolean all) throws ConsistencyCheckerGenericException {
 		StringBuilder log = new StringBuilder();
 		log.append(LOG_CREATING_EXPLANATION_MESSAGE);
+		// Initializes the mapClassExplanation variable with the
+		// inconsistency explanations generated by the reasoner. (agregated by
+		// class)
+		// The "all" parameter filters the explanations if set to false
+		// exhibiting only the first explanation per class.
 		HashMap<OWLClass, Set<Set<String>>> mapClassExplanation = checker.explain(all);
+		if (mapClassExplanation.size() == 0) {
+			System.out.println(CONSISTENCY_EXPLANATION);
+		}
 		log.append(LOG_CREATED_EXPLANATION_MESSAGE);
 
 		log.append(LOG_STARTING_PRINTING_EXPLANATION);
+		// The explanations are exhibited by class aggregation.
+		// This first loop selects the inconsistent class
 		for (OWLClass cls : mapClassExplanation.keySet()) {
 			log.append(LOG_EXPLANTION_ON_CLASS + cls.getIRI());
+			// Prints a message informing to each class the inconsistencies
+			// exhibited refers to.
 			System.out.println(String.format(INCONSISTENCYEXPLANATION, cls.getIRI()));
+			// This secons loop selects the insconsistent explanation for the
+			// select class.
 			for (Set<String> axs : mapClassExplanation.get(cls)) {
 				log.append(LOG_ONE_EXPLANATION + cls.getIRI());
 				System.out.println(String.format(ONE_POSSIBLE_EXPLATION, cls.getIRI()));
+				// Each explanation is composed by a set of axioms.
+				// This third loop prints each axiom in the selected
+				// explanation.
 				for (String ax : axs) {
 					log.append("\n" + ax);
 					System.out.println(ax);
@@ -445,165 +460,20 @@ public class Main {
 	}
 
 	/**
-	 * Print's list of formation errors and if/how they were recovered.
+	 * Prints list of formation errors and if/how they were recovered.
 	 * 
 	 * @param message
 	 *            List of formation errors in the ecore model file.
 	 */
 	protected static void printMessageModelIllFormed(ArrayList<String> message) {
+		// Initializes the variable responsible for holding the ill formedness
+		// error string
 		String errorMessage = ONTOLOGY_CREATOR_ILL_FORMED_MODEL_ERROR + JUMP_LINE;
+		// loops through the message errors, concatenating one at each line
 		for (String error : message) {
 			errorMessage += error + JUMP_LINE;
 		}
+		// Prints on the standard output the resulting error message
 		System.out.println(errorMessage);
-	}
-
-	/**
-	 * You can use this function to use ECC as an built-in component in any
-	 * given application. This function does not support object model
-	 * verification. For that use mainAsExtendedLib function
-	 * 
-	 * @param ePackage
-	 *            Standard Eclipse representation for Ecore Packages and inner
-	 *            structures of Ecore Models
-	 * @param save
-	 *            Indicates if an ".owl" representation must be generated
-	 * @param path
-	 *            Where the ".owl" representation will be stored
-	 * @throws ConsistencyCheckerGenericException
-	 * @throws OWLOntologyCreationException
-	 * @throws ParserException
-	 * @throws OWLOntologyStorageException
-	 * @deprecated This function is mainly marked as deprecated due to the
-	 *             reasonable refactoring it currently needs. It's however fully
-	 *             functional.
-	 */
-	public static void mainAsLib(EPackage ePackage, boolean save, String path)
-			throws ConsistencyCheckerGenericException, OWLOntologyCreationException, ParserException,
-			OWLOntologyStorageException {
-		StringBuilder log = new StringBuilder();
-		checker = new ConsistencyChecker(ePackage, log);
-		file_name = ePackage.getName();
-		checker.reason();
-		if (save) {
-			checker.save(path.replaceAll(ECORE_EXTENSION, OWL_EXTENSION));
-		}
-	}
-
-	/**
-	 * 
-	 * @param mM
-	 * @param simplified
-	 * @param obPool
-	 * @param linkPool
-	 * @param path
-	 *            Where the ".owl" representation will be stored
-	 * @param save
-	 *            Where the ".owl" representation will be stored
-	 * @throws ConsistencyCheckerGenericException
-	 * @throws OWLOntologyStorageException
-	 * @throws OWLOntologyCreationException
-	 * @throws ParserException
-	 * @deprecated This function is mainly marked as deprecated due to the
-	 *             reasonable refactoring it currently needs. It's however fully
-	 *             functional.
-	 */
-	public static void mainAsExtendedLib(EPackage mM, Map<String, ArrayList<TObject>> simplified,
-			Map<String, ArrayList<TObject>> obPool, Map<String, HashMap<TObject, ArrayList<TLink>>> linkPool,
-			String path, boolean save) throws ConsistencyCheckerGenericException, OWLOntologyStorageException,
-					OWLOntologyCreationException, ParserException {
-		StringBuilder log = new StringBuilder();
-		checker = new ConsistencyChecker(mM, simplified, obPool, linkPool, log);
-		if (save) {
-			checker.save(path.replaceAll(ECORE_EXTENSION, OWL_EXTENSION));
-		}
-		file_name = mM.getName();
-		checker.reason();
-	}
-
-	/**
-	 * Returns the consistency calculated by the reasoner in a String. For usage
-	 * as an built-in application
-	 * 
-	 * @return Message with consistency calculated by the reasoner
-	 * @throws ConsistencyCheckerGenericException
-	 * @deprecated This function is mainly marked as deprecated due to the
-	 *             reasonable refactoring it currently needs. It's however fully
-	 *             functional.
-	 */
-	public static String getConsistencyMessage() throws ConsistencyCheckerGenericException {
-		String ans = new String();
-		if (checker.checkConsistency()) {
-			ans = String.format(MODEL_CONSISTENT, file_name);
-		} else {
-			ans = INCONSISTENTCLASSES;
-			for (String inconsistentClassName : checker.getInconsistentClassesNames()) {
-				ans = ans + JUMP_LINE + inconsistentClassName;
-			}
-		}
-		return ans;
-	}
-
-	/**
-	 * Returns The reasoner explanation for inconsistency in a String. For usage
-	 * as an built-in application
-	 * 
-	 * @return Message with the reasoner explanation for inconsistency
-	 * @throws ConsistencyCheckerGenericException
-	 * @deprecated This function is mainly marked as deprecated due to the
-	 *             reasonable refactoring it currently needs. It's however fully
-	 *             functional.
-	 */
-	public static String getExplainMessage() throws ConsistencyCheckerGenericException {
-		String ans = new String();
-		HashMap<OWLClass, Set<Set<String>>> mapClassExplanation = checker.explain(false);
-		if (mapClassExplanation.size() == 0) {
-			ans = CONSISTENCY_EXPLANATION;
-		}
-		for (OWLClass cls : mapClassExplanation.keySet()) {
-			ans = ans + String.format(INCONSISTENCYEXPLANATION, cls.getIRI()) + JUMP_LINE;
-			for (Set<String> axs : mapClassExplanation.get(cls)) {
-				for (String ax : axs) {
-					ans = ans + ax + JUMP_LINE;
-				}
-			}
-		}
-		return ans;
-	}
-
-	/**
-	 * Returns the equivalent classes calculated by the reasoner in a String.
-	 * For usage as an built-in application
-	 * 
-	 * @return Message with equivalent Classes calculated by the reasoner
-	 * @throws ConsistencyCheckerGenericException
-	 * @deprecated This function is mainly marked as deprecated due to the
-	 *             reasonable refactoring it currently needs. It's however fully
-	 *             functional.
-	 */
-	public static String getEquivalentClasses() throws ConsistencyCheckerGenericException {
-		String ans = Constants.EMPTY_STRING;
-		ArrayList<ArrayList<String>> equivalencyClasses;
-		equivalencyClasses = checker.getEquivalentClasses();
-		if (equivalencyClasses.size() < 0) {
-			ans = EMPTY_ONTOLOGY;
-		} else {
-			ans = Constants.EMPTY_STRING;
-		}
-		for (ArrayList<String> arrayList : equivalencyClasses) {
-			ans = ans + "[";
-			for (int i = 0; i < arrayList.size(); i++) {
-				if (i > 0) {
-					ans = ans + ",";
-				}
-				if (arrayList.get(i).equals(NOT)) {
-					ans = ans + NOTHING;
-				} else {
-					ans = ans + arrayList.get(i);
-				}
-			}
-			ans = ans + "]" + JUMP_LINE;
-		}
-		return ans;
 	}
 }

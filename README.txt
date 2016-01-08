@@ -1,4 +1,4 @@
-Ecore Consistency Checker (ECC), is a tool designed to identify consistency errors in class and object diagrams. Implementing state-of-the-art research on formal model verification by mapping ECore diagrams to logical theories in Description Logics (DL), ECC aims at detecting software erros in stages that precedes coding in the development process.
+Ecore Consistency Checker (ECC), is a tool designed to identify consistency errors in class and object diagrams. Implementing state-of-the-art research on formal model verification by mapping ECore diagrams to logical theories in Description Logics (DL), ECC aims at detecting software errors in stages that precedes coding in the development process.
 
 Website: 
 Latest Release: 

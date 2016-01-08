@@ -268,7 +268,6 @@ public class OntologyCreator {
 		URI uri = URI.createURI("");
 		URI resolved = CommonPlugin.resolve(uri);
 		URI deres = URI.createFileURI(model).deresolve(resolved);
-		// Get the resource
 		Resource resource = resSet.getResource(deres, true);
 		return (EPackageImpl) resource.getContents().get(0);
 	}
@@ -522,12 +521,12 @@ public class OntologyCreator {
 		helper.setContext(cls);
 		String expOriginal = par.getValue();
 		OCLExpression<EClassifier> invariant = helper.createQuery(expOriginal);
-		MyAbstractVisitor visit = new MyAbstractVisitor(cls.getName(), ontologyIRI_, PACKAGE_PREFIX);
+		ECCAbstractVisitor visit = new ECCAbstractVisitor(cls.getName(), ontologyIRI_, PACKAGE_PREFIX);
 		invariant.accept(visit);
 		while (!expOriginal.equals(visit.mainSt.print())) {
 			expOriginal = visit.mainSt.print();
 			invariant = helper.createQuery(expOriginal);
-			visit = new MyAbstractVisitor(cls.getName(), ontologyIRI_, PACKAGE_PREFIX);
+			visit = new ECCAbstractVisitor(cls.getName(), ontologyIRI_, PACKAGE_PREFIX);
 			invariant.accept(visit);
 		}
 		OWLClassExpression invInDl = visit.mainSt.resolveStack();

@@ -45,11 +45,13 @@ import org.semanticweb.owlapi.model.OWLDataFactory;
 
 /**
  * @author Cassio Santos, Christiano Braga
- * @version 1.0.0
+ * @version 1.1.0
  * @since 1.0.0
  * 
+ * @see <a href="http://dx.doi.org/10.1016/j.datak.2011.09.004" target=
+ *      _blank>http://dx.doi.org/10.1016/j.datak.2011.09.004</a>
  */
-public class MyAbstractVisitor extends
+public class ECCAbstractVisitor extends
 		AbstractVisitor<OWLClassExpression, EClassifier, EOperation, EReference, EnumerationLiteral, EParameter, State, CallOperationAction, SendSignalAction, Constraint> {
 
 	public OWLDataFactory owlDataFactory_;
@@ -57,7 +59,7 @@ public class MyAbstractVisitor extends
 	public StackExp currentSt;
 	public IRI ontologyIRI_;
 
-	public MyAbstractVisitor(String context, IRI ontoIRI, String pkg) {
+	public ECCAbstractVisitor(String context, IRI ontoIRI, String pkg) {
 		super();
 		mainSt = new StackExp(null, ontoIRI, pkg);
 		currentSt = mainSt;
@@ -254,14 +256,12 @@ public class MyAbstractVisitor extends
 			if (callExp.eContainer() instanceof IteratorExp) {
 				IteratorExp<EClassifier, EParameter> fatherExp = (IteratorExp<EClassifier, EParameter>) callExp
 						.eContainer();
-				// if(fatherExp.getName().equals("select")){
 				if (fatherExp.getSource() == callExp) {
 					stack(fatherExp, true);
 				}
 				if (fatherExp.getBody() == callExp) {
 					endStack();
 				}
-				// }
 
 			}
 		}

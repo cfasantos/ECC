@@ -23,7 +23,7 @@ package consistencychecker;
  * Represent errors generated and at some level predictable or treatable in ECC.
  * 
  * @author Cassio Santos, Christiano Braga
- * @version 1.0.0
+ * @version 1.1.0
  * @since 1.0.0
  *
  */

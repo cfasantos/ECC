@@ -47,19 +47,34 @@ import ecorexmiparser.TObject;
 
 /**
  * @author Cassio Santos, Christiano Braga
- * @version 1.0.0
+ * @version 1.1.0
  * @since 1.0.0
  * 
  */
 public class ExtendedOntologyCreator extends OntologyCreator {
-
-	private static ExtendedOntologyCreator instance;
+	
 	protected static final String OBJECT_POSFIX = "object";
+	
+	// Variable used to implement the singleton design pattern
+	private static ExtendedOntologyCreator instance;
 
-	public ExtendedOntologyCreator() throws OWLOntologyCreationException {
+	/**
+	 * Standard Constructor. Calls the superclass constructor to instantiate
+	 * attributes Used only internally. For external calls, the getInstance
+	 * should be used to ensure the oneness of the instance.
+	 * 
+	 * @throws OWLOntologyCreationException
+	 */
+	private ExtendedOntologyCreator() throws OWLOntologyCreationException {
 		super();
 	}
 
+	/**
+	 * Implementation of the singleton design pattern. Use this method to get an instance of this class
+	 * 
+	 * @return returns the singleton instance
+	 * @throws OWLOntologyCreationException
+	 */
 	public static ExtendedOntologyCreator getInstance() throws OWLOntologyCreationException {
 		if (instance == null) {
 			instance = new ExtendedOntologyCreator();
@@ -67,27 +82,28 @@ public class ExtendedOntologyCreator extends OntologyCreator {
 		return instance;
 	}
 
-	public OWLOntology extendOntology(String oM) throws OWLOntologyCreationException {
+	/**
+	 * 
+	 * @param objectModelPath Full path for the .XMI representing the object model
+	 * @return returns an OWLOntology representing the 
+	 * @throws OWLOntologyCreationException
+	 */
+	public OWLOntology extendOntology(String objectModelPath) throws OWLOntologyCreationException {
 		OWLOntologyManager ontologyManager_ = OWLManager.createOWLOntologyManager();
-		EcoreXMIParser p = new EcoreXMIParser(classes, associations, PACKAGE_PREFIX);
-		p.parse(oM);
-		insertTypingAxioms(p.getObjectPool());
-		insertLinksAxioms(p.getObjectPool(), p.getlinkPool());
+		//Instantiate the XMI parser providing the classes and associations retrieved from the Class Model
+		EcoreXMIParser parser = new EcoreXMIParser(classes, associations, PACKAGE_PREFIX);
+		//Parses the XMI File, creating and pools of objects and links
+		parser.parse(objectModelPath);
+		//Creates axioms representing the objects
+		insertTypingAxioms(parser.getObjectPool());
+		//Creates axioms representing the links
+		insertLinksAxioms(parser.getObjectPool(), parser.getlinkPool());
+		//Create the ontology containing the object model axioms
 		OWLOntology ontology_ = ontologyManager_.createOntology(ontologyIRI_);
+		//Adds the object model axioms to the previouly created metamodel axioms
 		List<OWLOntologyChange> ontologyResulted = ontologyManager_.addAxioms(ontology_, axiomList_);
 		ontologyManager_.applyChanges(ontologyResulted);
-		return ontology_;
-	}
-
-	public OWLOntology extendOntology(Map<String, ArrayList<TObject>> simplified,
-			Map<String, ArrayList<TObject>> obPool, Map<String, HashMap<TObject, ArrayList<TLink>>> linkPool)
-					throws OWLOntologyCreationException {
-		OWLOntologyManager ontologyManager_ = OWLManager.createOWLOntologyManager();
-		insertTypingAxioms(obPool);
-		insertLinksAxioms(obPool, linkPool);
-		OWLOntology ontology_ = ontologyManager_.createOntology(ontologyIRI_);
-		List<OWLOntologyChange> ontologyResulted = ontologyManager_.addAxioms(ontology_, axiomList_);
-		ontologyManager_.applyChanges(ontologyResulted);
+		//returns the extended ontology
 		return ontology_;
 	}
 
