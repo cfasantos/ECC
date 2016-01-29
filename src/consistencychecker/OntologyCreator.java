@@ -82,6 +82,8 @@ import util.Constants;
  * 
  */
 public class OntologyCreator {
+	
+	// LOG messages
 	private static final String LOG_GATHERED_AXIOMS = "\nall axioms gathered in one ontology.";
 	private static final String LOG_GATHERING_AXIOMS = "\nGathering all axioms in one ontology.";
 	private static final String LOG_CREATING_AXIOMS_EREFERENCE = "\nStarting axiom generation for the EReference with ends \"%s\" and \"%s\".";
@@ -120,56 +122,123 @@ public class OntologyCreator {
 	private static final String LOG_CREATED_ONTOLOGY = "\nDone creating the ontology.";
 	private static final String LOG_PARSING_MODEL = "\nStarting to parse input model.";
 	private static final String LOG_PARSED_MODEL = "\nDone parsing input model.";
-	private static final String ERR_SAVE_NULL_ONTOLOGY = "The ontology can't be null at the save moment.";
-	protected static final String NULL = "null";
-	protected static final String ECORE_EXTENSION = "ecore";
-	protected static final String SPACE = " ";
-	protected static final String UNDERSCORE = "ecore";
-	protected static final String ONTOLOGY_CREATOR_ASSOCIATION_ROLES_NOT_OPOSITE_ERROR = "Two given association roles are not oposite.";
+	
+	//Unrecoverable ill formation messages
 	protected static final String ILL_FORMED_TYPELESS_ATTR_EXCEPTION = "The model has at least one attribute with no type, no recovery was possible.";
 	protected static final String ILL_FORMED_TYPELESS_METHOD_PARAMETER_EXCEPTION = "The model has at least one method parameter with no type, no recovery was possible.";
+	
+	//Recoverable ill formation messages
 	protected static final String ILL_FORMED_NAMELESS_CLASS_RECOVERED_ERROR = "There was a nameless Class, the name %s was assigned to this execution";
 	protected static final String ILL_FORMED_NAMELESS_ATTR_RECOVERED_ERROR = "There was a nameless Attribute, the name %s was assigned to this execution";
 	protected static final String ILL_FORMED_NAMELESS_METHOD_RECOVERED_ERROR = "There was a nameless Method, the name %s was assigned to this execution";
 	protected static final String ILL_FORMED_NAMELESS_ASSOCIATION_RECOVERED_ERROR = "There was a nameless association, the name %s was assigned to this execution";
 	protected static final String ILL_FORMED_ASSOCIATIONEND_MULTIPLICITY_ERROR = "There is a multiplicity error in the association end %s, no recovery was possible.";
 	protected static final String ILL_FORMED_ASSOCIATIONEND_NO_OPOSITE = "There is a association %s with no oposite. No recovery was possible.";
-	protected static final String POUND_SIGN = "#";
-	protected static final String RETURN = "ret";
-	protected static final String ontologyIRI = "lse.ic.uff.br/ontology";
-	protected static final String CLASS_POSFIX = "class";
-	protected static final String INDIVIDUAL_POSFIX = "individual";
-	protected static final String ENUMERATION_POSFIX = "enumeration";
-	protected static final String ROLE_POSFIX = "role";
-	protected static final String ATTRIBUTE_POSFIX = "attribute";
-	protected static final String METHOD_POSFIX = "method";
+	protected static final String ONTOLOGY_CREATOR_ASSOCIATION_ROLES_NOT_OPOSITE_ERROR = "Two given association roles are not oposite.";
+	
+	//OWL elements posfix
 	protected static final String ASSOCIATION_POSFIX = "association";
+	protected static final String ATTRIBUTE_POSFIX = "attribute";
+	protected static final String CLASS_POSFIX = "class";
+	protected static final String ENUMERATION_POSFIX = "enumeration";
+	protected static final String INDIVIDUAL_POSFIX = "individual";
+	protected static final String METHOD_POSFIX = "method";
+	protected static final String ROLE_POSFIX = "role";
+	
+	//Utils
+	private static final String ERR_SAVE_NULL_ONTOLOGY = "The ontology can't be null at the save moment.";
 	protected static final String PIVOT_URL = "http://www.eclipse.org/emf/2002/Ecore/OCL/Pivot";
+	protected static final String ontologyIRI = "lse.ic.uff.br/ontology";
+	protected static final String RETURN = "ret";
+	protected static final String NULL = "null";
+	protected static final String ECORE_EXTENSION = "ecore";
 	protected static final String XMICONTAINER = "XMIContainer";
+	protected static final String POUND_SIGN = "#";
+	protected static final String UNDERSCORE = "_";
+	protected String CLASS_NAME_BUILDER = "";
 	protected String PACKAGE_PREFIX = Constants.EMPTY_STRING;
+	protected static final String SPACE = " ";
+	
+	//Constant used to persist the representation of DL (TOP)
+	protected OWLClass thing;
+	
+	//Attributes used to represent the the ontology in .ecore form
 	protected ArrayList<EReference> associations;
 	protected HashMap<EClass, ArrayList<EClass>> inheritances;
 	protected ArrayList<EClass> classes;
 	protected ArrayList<EEnum> enumerations;
+	
+	//Attributes used to represent the the ontology in OWL form
 	protected OWLDataFactory owlDataFactory_;
-	protected Set<OWLAxiom> axiomList_;
-	protected OWLClass thing;
 	protected IRI ontologyIRI_;
-	protected static OntologyCreator instance;
+	protected Set<OWLAxiom> axiomList_;
+	
+	//Element used to control the creation, persistence and changes in the OWL Ontology
 	private OWLOntologyManager ontologyManager_;
-	protected String CLASS_NAME_BUILDER = "";
+	
+	//Attribute used to implement the singleton design pattern
+	protected static OntologyCreator instance;
 
+	/**
+	 * OntologyCreator Constructor used to initialize the required attributes
+	 * 
+	 * @throws OWLOntologyCreationException
+	 */
 	public OntologyCreator() throws OWLOntologyCreationException {
 		ontologyManager_ = OWLManager.createOWLOntologyManager();
 		owlDataFactory_ = ontologyManager_.getOWLDataFactory();
 		axiomList_ = new HashSet<OWLAxiom>();
 		ontologyIRI_ = IRI.create(ontologyIRI);
 		thing = owlDataFactory_.getOWLThing();
-
 	}
 
 	/**
-	 * Populates the each collection that represent an Ecore construction with
+	 * Transforms an Ecore model to its representation in OWLAxioms
+	 * 
+	 * @param input_model
+	 *            String with the path to the Ecore model to be transformed in
+	 *            axioms
+	 * @return Return a OWLOntology with the axioms that represents the Ecore
+	 *         model
+	 * @throws ConsistencyCheckerGenericException
+	 * @throws OWLOntologyCreationException
+	 * @throws ParserException
+	 */
+	public OWLOntology processAndCreateOntology(String input_model, StringBuilder log)
+			throws ConsistencyCheckerGenericException, OWLOntologyCreationException, ParserException {
+		//Parses the input model, creating an memory representation to the .ecore model
+		log.append(LOG_PARSING_MODEL);
+		parse(input_model, log);
+		log.append(LOG_PARSED_MODEL);
+		
+		//Create an variable to store the bypassed errors in the
+		//well formedness verification
+		ArrayList<String> errorsList;
+		
+		//Checks if the Model is well formed and stores the errors found in the errorsList variable
+		log.append(LOG_CHECKING_WELL_FORMEDNESS);
+		errorsList = isModelWellFormed();
+		log.append(LOG_CHECKED_WELL_FORMEDNESS);
+		
+		//If formation errors were found during the checking, prints it;
+		if (errorsList.size() > 0) {
+			log.append(LOG_PRINTING_ERRORS);
+			Main.printMessageModelIllFormed(errorsList);
+			log.append(LOG_PRINTED_ERRORS);
+		}
+		
+		//Creates the ontology if no unrecoverable problem was detected
+		log.append(LOG_CREATING_ONTOLOGY);
+		OWLOntology ontology = null;
+		ontology = createOntology(log);
+		log.append(LOG_CREATED_ONTOLOGY);
+		
+		//Returns the created ontology
+		return ontology;
+	}
+	
+	/**
+	 * Populates each collection that represent an Ecore construction with
 	 * the objects from the input_model
 	 * 
 	 * @param input_model
@@ -177,15 +246,19 @@ public class OntologyCreator {
 	 * @throws ParserException
 	 */
 	private void parse(String input_model, StringBuilder log) throws ParserException {
+		//Loads the .ecore file to a memory representation 
+		//and stores the root package in the pkg variable
 		log.append(LOG_LOADED_EPACKAGE);
 		EPackageImpl pkg = load(input_model);
+		//Splits the .ecore elements from the root package
+		//populating the proper class attributes
 		log.append(LOG_PARSING_EPACKAGE);
 		parse(pkg, log);
 		log.append(LOG_PARSED_EPACKAGE);
 	}
 
 	/**
-	 * Populates the each collection that represent an Ecore construction with
+	 * Populates the collection that represent an Ecore construction with
 	 * the objects from the pkg
 	 * 
 	 * @param pkg
@@ -193,41 +266,61 @@ public class OntologyCreator {
 	 * @throws ParserException
 	 */
 	private void parse(EPackage pkg, StringBuilder log) throws ParserException {
-		log.append(LOG_GETTING_EPACKAGE);
-		PACKAGE_PREFIX = pkg.getName();
-		CLASS_NAME_BUILDER = ontologyIRI_ + POUND_SIGN + PACKAGE_PREFIX + "(" + "%s" + "[" + CLASS_POSFIX + "]" + ")";
-		EList<EClassifier> elements = pkg.getEClassifiers();
+		//Instantiates the required auxiliary variables 
+		//Stores the class elements found in the package
 		classes = new ArrayList<EClass>();
+		//Stores the association elements found in the package
 		associations = new ArrayList<EReference>();
+		//Stores the enumeration elements found in the package
 		enumerations = new ArrayList<EEnum>();
+		//Stores a map that relates a class to it's superclasses
 		HashMap<EClass, ArrayList<EClass>> reverse_inheritances = new HashMap<EClass, ArrayList<EClass>>();
 
+		//Extracts the package name to be used in subsequent name building
+		log.append(LOG_GETTING_EPACKAGE);
+		PACKAGE_PREFIX = pkg.getName();
+		//Creates an pattern used in subsequent class naming
+		CLASS_NAME_BUILDER = ontologyIRI_ + POUND_SIGN + PACKAGE_PREFIX + "(" + "%s" + "[" + CLASS_POSFIX + "]" + ")";
+		//Loads the Classifier elements such as Classes ans Enumerations in a list
+		EList<EClassifier> elements = pkg.getEClassifiers();
+		
+		//Runs through the classifier elements
 		log.append(LOG_RUNNING_ELEMENTS);
 		for (EClassifier classifier : elements) {
 			log.append(String.format(LOG_ELEMENT_X, classifier.getName()));
+			//Detects if the current classifier is a class and if it's not using the
+			//restricted name "XMIContainer"
 			if (classifier instanceof EClass && !((EClass) classifier).getName().equals(XMICONTAINER)) {
 				log.append(String.format(LOG_ELEMENT_X_AS_CLASS, classifier.getName()));
 				log.append(String.format(LOG_ADDED_CLASS_IN_POOL, classifier.getName()));
+				//Adds the class to the class list
 				classes.add((EClass) classifier);
 
+				//Maps the current class superclasses to an array list
+				//from the original Elist
 				ArrayList<EClass> superClasses = new ArrayList<EClass>();
 				for (EClass superclass : ((EClass) classifier).getESuperTypes()) {
 					superClasses.add(superclass);
 				}
 
+				//Adds an entry in the reverse_inheritance map
 				reverse_inheritances.put((EClass) classifier, superClasses);
 
+				//Extracts the EReferences associated with the current class
 				for (EReference reference : ((EClass) classifier).getEAllReferences()) {
 					if (!((EClass) classifier).getName().equals(XMICONTAINER)) {
 						associations.add(reference);
 					}
 				}
 			} else {
+				//If the classifier is an Enumeration
+				//Adds it to the enumeration list
 				if (classifier instanceof EEnum) {
 					enumerations.add((EEnum) classifier);
 				}
 			}
 		}
+		//Maps all the inheritances to a relation from superclass to subclasses
 		inheritances = reverse(reverse_inheritances, classes);
 	}
 
@@ -241,12 +334,12 @@ public class OntologyCreator {
 	 */
 	public void save(String name, OWLOntology ontology)
 			throws OWLOntologyStorageException, ConsistencyCheckerGenericException {
+		//If there's no ontology before this method is invoked
+		//an null ontology exception is thrown
 		if (ontology == null) {
 			throw new ConsistencyCheckerGenericException(ERR_SAVE_NULL_ONTOLOGY);
 		}
-		// URI uri = URI.createURI("");
-		// URI resolved = CommonPlugin.resolve(uri);
-		// URI deres = URI.createFileURI(name).deresolve(resolved);
+		//Saves the ontology in the path informed by the parameter "name"
 		File file = new File(name);
 		java.net.URI u = file.toURI();
 		ontologyManager_.saveOntology(ontology, IRI.create(u.toString()));
@@ -259,16 +352,19 @@ public class OntologyCreator {
 	 * @return Returns the root EPackage of the Ecore model
 	 */
 	private EPackageImpl load(String model) {
+		//initializes the internal emf settings required to manipulate ecore memory representations
 		org.eclipse.emf.ecore.impl.EcorePackageImpl.init();
-
 		ResourceSet resSet = new ResourceSetImpl();
 		resSet.getResourceFactoryRegistry().getExtensionToFactoryMap().put(ECORE_EXTENSION,
 				new XMIResourceFactoryImpl());
 
+		//loads the file to a Resource variable with an empty URI
 		URI uri = URI.createURI("");
 		URI resolved = CommonPlugin.resolve(uri);
 		URI deres = URI.createFileURI(model).deresolve(resolved);
 		Resource resource = resSet.getResource(deres, true);
+		
+		//Extracts the root package from the resources content
 		return (EPackageImpl) resource.getContents().get(0);
 	}
 
@@ -279,12 +375,30 @@ public class OntologyCreator {
 	 * @throws ConsistencyCheckerGenericException
 	 */
 	protected ArrayList<String> isModelWellFormed() throws ConsistencyCheckerGenericException {
+		ArrayList<String> errorsList = new ArrayList<String>();
+
+		//Check the wellFormedness of classes
+		errorsList.addAll(areClassesWellFormed());
+
+		//Check the wellFormedness of associations
+		errorsList.addAll(areAssociationsWellFormed());
+		
+		//Returns a list of bypassed formation problems found in the model.
+		return errorsList;
+	}
+
+	/**
+	 * Verifies the classes from the model are well formed
+	 * 
+	 * @return
+	 * @throws ConsistencyCheckerGenericException
+	 */
+	private ArrayList<String> areClassesWellFormed() throws ConsistencyCheckerGenericException {
 		int classCounter = 0;
 		int attrCounter = 0;
 		int methCounter = 0;
-		int assocCounter = 0;
 		ArrayList<String> errorsList = new ArrayList<String>();
-
+		
 		for (EClass classe : classes) {
 
 			// Assures that every class has a name.
@@ -327,16 +441,32 @@ public class OntologyCreator {
 					throw new ConsistencyCheckerGenericException(ILL_FORMED_TYPELESS_METHOD_PARAMETER_EXCEPTION);
 				}
 
+				//Assures that every parameter has a type
 				for (EParameter eParameter : method.getEParameters()) {
 					if (eParameter.getEType() == null) {
 						throw new ConsistencyCheckerGenericException(ILL_FORMED_TYPELESS_METHOD_PARAMETER_EXCEPTION);
 					}
 				}
+				//Removes the spaces from the method name
 				method.setName(method.getName().replaceAll(SPACE, Constants.EMPTY_STRING));
 			}
 		}
+		return errorsList;
+	}
+
+	/**
+	 * Verifies the classes from the model are well formed
+	 * 
+	 * @return
+	 * @throws ConsistencyCheckerGenericException
+	 */
+	private ArrayList<String> areAssociationsWellFormed() throws ConsistencyCheckerGenericException {
+		int assocCounter = 0;
+		ArrayList<String> errorsList = new ArrayList<String>();
 
 		for (EReference association : associations) {
+			
+			//Assures that every association has a name
 			if (association.getName() == null || association.getName().equals(Constants.EMPTY_STRING)
 					|| association.getName().equals(NULL)) {
 				association.setName(ASSOCIATION_POSFIX + UNDERSCORE + assocCounter);
@@ -344,94 +474,37 @@ public class OntologyCreator {
 						ASSOCIATION_POSFIX + UNDERSCORE + assocCounter));
 				assocCounter++;
 			}
+			
+			//Assures that every association has an oposite end
 			if (association.getEOpposite() == null) {
 				throw new ConsistencyCheckerGenericException(
 						String.format(ILL_FORMED_ASSOCIATIONEND_NO_OPOSITE, association.getName()));
 			}
-			if (association.getUpperBound() == 0) {
+			
+			//Assures no upper bound in association is equals to zero or smaller than -1 
+			//-1 is the numeric representation for *
+			if (association.getUpperBound() == 0 || association.getUpperBound() < -1) {
 				throw new ConsistencyCheckerGenericException(
 						String.format(ILL_FORMED_ASSOCIATIONEND_MULTIPLICITY_ERROR, association.getName()));
 			}
+			
+			//Assures no lower bound is smaller than zero
+			if (association.getLowerBound() < 0) {
+				throw new ConsistencyCheckerGenericException(
+						String.format(ILL_FORMED_ASSOCIATIONEND_MULTIPLICITY_ERROR, association.getName()));
+			}
+			
+			//Assures no lower bound is bigger than the upeer bound in the same association
 			if (association.getUpperBound() > 0 && association.getLowerBound() > 0) {
 				if (association.getUpperBound() < association.getLowerBound()) {
 					throw new ConsistencyCheckerGenericException(
 							String.format(ILL_FORMED_ASSOCIATIONEND_MULTIPLICITY_ERROR, association.getName()));
 				}
 			}
-			if (association.getLowerBound() < 0) {
-				throw new ConsistencyCheckerGenericException(
-						String.format(ILL_FORMED_ASSOCIATIONEND_MULTIPLICITY_ERROR, association.getName()));
-			}
-			if (association.getUpperBound() < -1) {
-				throw new ConsistencyCheckerGenericException(
-						String.format(ILL_FORMED_ASSOCIATIONEND_MULTIPLICITY_ERROR, association.getName()));
-			}
-			if (association.getUpperBound() == -1 && association.getLowerBound() < 0) {
-				throw new ConsistencyCheckerGenericException(
-						String.format(ILL_FORMED_ASSOCIATIONEND_MULTIPLICITY_ERROR, association.getName()));
-			}
+			//Removes any empty space in the association
 			association.setName(association.getName().replaceAll(SPACE, Constants.EMPTY_STRING));
 		}
-
 		return errorsList;
-	}
-
-	/**
-	 * Transforms an Ecore model to its representation in OWLAxioms
-	 * 
-	 * @param input_model
-	 *            String with the path to the Ecore model to be transformed in
-	 *            axioms
-	 * @return Return a OWLOntology with the axioms that represents the Ecore
-	 *         model
-	 * @throws ConsistencyCheckerGenericException
-	 * @throws OWLOntologyCreationException
-	 * @throws ParserException
-	 */
-	public OWLOntology processAndCreateOntology(String input_model, StringBuilder log)
-			throws ConsistencyCheckerGenericException, OWLOntologyCreationException, ParserException {
-		log.append(LOG_PARSING_MODEL);
-		parse(input_model, log);
-		log.append(LOG_PARSED_MODEL);
-		ArrayList<String> errorsList;
-		OWLOntology ret = null;
-		log.append(LOG_CHECKING_WELL_FORMEDNESS);
-		errorsList = isModelWellFormed();
-		log.append(LOG_CHECKED_WELL_FORMEDNESS);
-		if (errorsList.size() > 0) {
-			log.append(LOG_PRINTING_ERRORS);
-			Main.printMessageModelIllFormed(errorsList);
-			log.append(LOG_PRINTED_ERRORS);
-		}
-		log.append(LOG_CREATING_ONTOLOGY);
-		ret = createOntology(log);
-		log.append(LOG_CREATED_ONTOLOGY);
-		return ret;
-	}
-
-	/**
-	 * Transforms an Ecore model to its representation in OWLAxioms
-	 * 
-	 * @param input_model
-	 *            Root EPackage of the Ecore model to be transformed in axioms
-	 * @return Return a OWLOntology with the axioms that represents the Ecore
-	 *         model
-	 * @throws ConsistencyCheckerGenericException
-	 * @throws ParserException
-	 * @throws OWLOntologyCreationException
-	 */
-	public OWLOntology processAndCreateOntology(EPackage input_model, StringBuilder log)
-			throws ConsistencyCheckerGenericException, ParserException, OWLOntologyCreationException {
-		parse(input_model, log);
-		ArrayList<String> errorsList;
-		OWLOntology ret = null;
-		errorsList = isModelWellFormed();
-		if (errorsList.size() > 0) {
-			Main.printMessageModelIllFormed(errorsList);
-		}
-		ret = createOntology(log);
-		return ret;
-		// return createOntology();
 	}
 
 	/**
@@ -445,12 +518,17 @@ public class OntologyCreator {
 	 */
 	protected OWLOntology createOntology(StringBuilder log)
 			throws ConsistencyCheckerGenericException, OWLOntologyCreationException, ParserException {
-		HashMap<EReference, Boolean> references = new HashMap<EReference, Boolean>();
+		
+		//Maps each class to the axioms that represents it
 		for (EClass classe : classes) {
 			log.append(String.format(LOG_CHECKING_ECLASS, classe.getName()));
 
+			//Runs through the class attributes and creates the proper axioms
 			log.append(String.format(LOG_CHECKING_ECLASS_ATTRIBUTES, classe.getName()));
 			for (EAttribute attribute : classe.getEAllAttributes()) {
+				
+				//Checks if the current class attribute its from a built-in type
+				//or a created type and creates the proper axioms
 				if (checkOWLDataType(attribute.getEAttributeType().getName())) {
 					log.append(String.format(LOG_CHECKING_ECLASS_ATTRIBUTES_DATA_TYPE, attribute.getName(),
 							classe.getName()));
@@ -465,6 +543,7 @@ public class OntologyCreator {
 			}
 			log.append(String.format(LOG_CHECKED_ECLASS_ATTRIBUTES, classe.getName()));
 
+			//Runs through the class methods and creates the proper axioms
 			log.append(String.format(LOG_CHECKING_ECLASS_METHODS, classe.getName()));
 			for (EOperation method : classe.getEAllOperations()) {
 				log.append(String.format(LOG_GENERATING_ECLASS_METHODS_AXIOMS, method.getName(), classe.getName()));
@@ -473,8 +552,11 @@ public class OntologyCreator {
 			}
 			log.append(String.format(LOG_CHECKED_ECLASS_METHODS, classe.getName()));
 
+			//Runs through the class annotations and creates the proper axioms
 			log.append(String.format(LOG_CHECKING_ANNOTATIONS, classe.getName()));
 			for (EAnnotation ant : classe.getEAnnotations()) {
+				//Only anotations with source equals to the PIVOT_URL are OCL invariants
+				//and mapped to axioms. Other sources aren't mapped to any axiom
 				if (ant.getSource().equals(PIVOT_URL)) {
 					log.append(
 							String.format(LOG_CHECKING_ECLASS_INVARIANTS, classe.getName(), ant.getDetails().size()));
@@ -487,65 +569,101 @@ public class OntologyCreator {
 			}
 			log.append(LOG_CHECKED_ANNOTATIONS);
 
+			//Creates the generalization axioms from the inheritances mapped
 			log.append(String.format(LOG_CREATING_AXIOMS_INHERITANCE, classe.getName()));
-			makeGeneralizationAxiom(inheritances, classe);
+			makeGeneralizationAxiom(inheritances.get(classe), classe);
+			
 			log.append(String.format(LOG_CREATED_AXIOMS_INHERITANCE, classe.getName()));
 
 			log.append(String.format(LOG_CHECKED_ECLASS, classe.getName()));
 		}
 
+
+		//Creates a map to store the references and if its representation axioms were created
+		HashMap<EReference, Boolean> references = new HashMap<EReference, Boolean>();
+		//Maps each reference to the axioms that represents it
 		for (EReference association : associations) {
 			if (references.get(association) == null) {
+				
 				log.append(String.format(LOG_CREATING_AXIOMS_EREFERENCE, association.getName(),
 						association.getEOpposite().getName()));
+				
+				//Creates the axioms for the reference
 				makeAssociatonAxiom(association, association.getEOpposite());
+				//Mark the reference as having it axiom created
 				references.put(association, Boolean.TRUE);
 				references.put(association.getEOpposite(), Boolean.TRUE);
 				log.append(String.format(LOG_CREATED_AXIOMS_EREFERENCE, association.getName(),
 						association.getEOpposite().getName()));
 			}
 		}
+		
 		log.append(LOG_GATHERING_AXIOMS);
+		//Creates the actual ontology
 		OWLOntology ontology_ = ontologyManager_.createOntology(ontologyIRI_);
+		//Adds the generated axioms on the created ontology
 		List<OWLOntologyChange> ontologyResulted = ontologyManager_.addAxioms(ontology_, axiomList_);
+		//Apply the changes
 		ontologyManager_.applyChanges(ontologyResulted);
 		log.append(LOG_GATHERED_AXIOMS);
 		return ontology_;
 	}
 
+	/**
+	 * Maps OCL invariants to axioms
+	 * 
+	 * @param cls
+	 * 		Class containing the OCL invariant
+	 * @param par
+	 * 		
+	 * @throws ParserException
+	 */
 	protected void makeInvariantAxioms(EClass cls, Entry<String, String> par) throws ParserException {
 		OCL<EPackage, EClassifier, EOperation, EStructuralFeature, EEnumLiteral, EParameter, EObject, CallOperationAction, SendSignalAction, Constraint, EClass, EObject> ocl = OCL
 				.newInstance(EcoreEnvironmentFactory.INSTANCE);
 		OCLHelper<EClassifier, EOperation, EStructuralFeature, Constraint> helper = ocl.createOCLHelper();
 
+		//Sets the OCL Context to the provided class
 		helper.setContext(cls);
+		
+		//Stores the original expression text on the expOriginal String
 		String expOriginal = par.getValue();
+		
+		//Creates an OCLExpression based on text provided
 		OCLExpression<EClassifier> invariant = helper.createQuery(expOriginal);
+		
+		//Creates an abstract visitor to store to store the OCL expression in a stack form
+		//and resolve it to a class expression
 		ECCAbstractVisitor visit = new ECCAbstractVisitor(cls.getName(), ontologyIRI_, PACKAGE_PREFIX);
+		//Makes the first iteraction on the invariant
 		invariant.accept(visit);
+		
+		//Loops through the execution until the main stack remains unchanged
 		while (!expOriginal.equals(visit.mainSt.print())) {
 			expOriginal = visit.mainSt.print();
 			invariant = helper.createQuery(expOriginal);
 			visit = new ECCAbstractVisitor(cls.getName(), ontologyIRI_, PACKAGE_PREFIX);
 			invariant.accept(visit);
 		}
+		
+		//Once the expression is properly stored in stack form
+		//the same is mapped to an OWL class expression
 		OWLClassExpression invInDl = visit.mainSt.resolveStack();
-		OWLClass alfa = owlDataFactory_.getOWLClass(IRI
-				// .create(ontologyIRI_ + POUND_SIGN
-				// + PACKAGE_PREFIX
-				// + cls.getName()
-				// + CLASS_POSFIX));
-				.create(String.format(CLASS_NAME_BUILDER, cls.getName())));
+		
+		//Creates an OWL class representing the class that holds the invariant
+		OWLClass alfa = owlDataFactory_.getOWLClass(
+					IRI.create(String.format(CLASS_NAME_BUILDER, cls.getName())));
+		
+		//Creates an axiom that states that the class is restricted by its invariant
 		OWLAxiom sub = owlDataFactory_.getOWLSubClassOfAxiom(alfa, invInDl);
+		//Adds the created axiom to the axioms list
 		axiomList_.add(sub);
-		// log.append(String.format(LOG_CHECKED_ANNOTATIONS,cls.getName()));
-		// log.append(String.format(LOG_ADDED_CLASS_IN_POOL,cls.getName()));
 
 	}
 
 	/**
-	 * Inverts a map that maps the sons into fathers, to a map that maps fathers
-	 * into sons
+	 * Creates a map relating superclasses to subclasses based on a map
+	 * relating subclasses to superclasses
 	 * 
 	 * @param relatives
 	 *            Original map
@@ -555,42 +673,61 @@ public class OntologyCreator {
 	 */
 	protected static HashMap<EClass, ArrayList<EClass>> reverse(HashMap<EClass, ArrayList<EClass>> relatives,
 			ArrayList<EClass> classes) {
-		HashMap<EClass, ArrayList<EClass>> paiFilhos = new HashMap<EClass, ArrayList<EClass>>();
+		
+		HashMap<EClass, ArrayList<EClass>> superToSub = new HashMap<EClass, ArrayList<EClass>>();
+		
+		//Associates all classes in the model to an empty array list as its subclasses
 		for (EClass cls : classes) {
-			paiFilhos.put(cls, new ArrayList<EClass>());
+			superToSub.put(cls, new ArrayList<EClass>());
 		}
+		
+		//Runs through all the classes
 		for (EClass cls : classes) {
+			//Checks if the current class is related as subclass in the subclasses map
 			for (EClass superClass : relatives.get(cls)) {
-				paiFilhos.get(superClass).add(cls);
+				//Associates the Eclass "cls" as a SubClass of the Eclass "superClass"
+				superToSub.get(superClass).add(cls);
 			}
 		}
-		return paiFilhos;
+		return superToSub;
 
 	}
 
+	/**
+	 * An UML enumeration E is represented in DL by 3 distinct parts. The first part
+	 * is an atomic concept E representing the Enumeration itselft. The second part
+	 * is a set S of individuals i representing the enumeration members. The third part
+	 * is an axiom stating that the E \sqsubseteq S.
+	 * 
+	 * @param en 
+	 * 		The UML enumeration
+	 * @return
+	 */
 	protected OWLClass createOWLEnum(EEnum en) {
+		
+		//Instantiate a hashset to store the individuals
 		HashSet<OWLIndividual> owlindividuals = new HashSet<OWLIndividual>();
+		
+		//Runs through the literals comprising the enumeration
 		for (EEnumLiteral item : en.getELiterals()) {
+			//Creates an named individual representing the current literal
 			OWLIndividual i = owlDataFactory_.getOWLNamedIndividual(IRI.create(ontologyIRI_ + POUND_SIGN
 					+ PACKAGE_PREFIX + item.getName().replaceAll(SPACE, Constants.EMPTY_STRING) + INDIVIDUAL_POSFIX));
+			
+			//Adds the individual to the set
 			owlindividuals.add(i);
 		}
+		
+		//Creates a concept representing the Enumeration
 		OWLClass owlEn = owlDataFactory_.getOWLClass(IRI.create(ontologyIRI_ + POUND_SIGN + PACKAGE_PREFIX
 				+ en.getName().replaceAll(SPACE, Constants.EMPTY_STRING) + ENUMERATION_POSFIX));
+		
+		//Creates an axiom stating that the concept representing the enumeration is
+		//restricted to the the set of individuals representing its literals
 		OWLObjectOneOf enumeration = owlDataFactory_.getOWLObjectOneOf(owlindividuals);
 		OWLAxiom c = owlDataFactory_.getOWLEquivalentClassesAxiom(owlEn, enumeration);
 		axiomList_.add(c);
 		return owlEn;
-	}
-
-	protected boolean checkOWLDataType(String typeName) {
-		if (typeName.equals("EInt") || typeName.equals("EFloat") || typeName.equals("EDouble")
-				|| typeName.equals("OWLInteger") || typeName.equals("OWLint") || typeName.equals("OWLfloat")
-				|| typeName.equals("EBoolean") || typeName.equals("OWLdouble") || typeName.equals("OWLboolean")) {
-			return true;
-		} else {
-			return false;
-		}
 	}
 
 	/**
@@ -618,60 +755,85 @@ public class OntologyCreator {
 		OWLClass owlAttributeTypeCls = null;
 		OWLDataProperty owlAttribute = null;
 		OWLObjectProperty owlAttObj = null;
-
-		OWLClass owlClass = owlDataFactory_.getOWLClass(IRI.create(String.format(CLASS_NAME_BUILDER, cls.getName())));
-		// create(ontologyIRI_+ POUND_SIGN + PACKAGE_PREFIX + cls.getName() +
-		// CLASS_POSFIX));
 		boolean isBuiltIn = true;
+		
+		//Creates a concept representing the class "cls"
+		OWLClass owlClass = owlDataFactory_.getOWLClass(IRI.create(String.format(CLASS_NAME_BUILDER, cls.getName())));
+		
+		//Tries to create a OWLDataType from the attribute type
+		//checking with this if this is an built-in attribute
 		OWLDatatype owlType = createDataType(attribute.getEAttributeType().getName());
+		
+		//If the creates DataType is null than the current attribute is not
+		//a built-in one
 		if (owlType == null) {
 			isBuiltIn = false;
+			
+			//Creates an owlclass representing the attribute type
 			owlAttributeTypeCls = owlDataFactory_.getOWLClass(
 					IRI.create(String.format(CLASS_NAME_BUILDER, attribute.getEAttributeType().getName())));
-			// .create(ontologyIRI_ + POUND_SIGN + PACKAGE_PREFIX
-			// + attribute.getEAttributeType().getName()
-			// + CLASS_POSFIX));
+			
+			//Creates an OWLObject property representing the attribute
 			owlAttObj = owlDataFactory_.getOWLObjectProperty(IRI.create(
 					ontologyIRI_ + POUND_SIGN + PACKAGE_PREFIX + cls.getName() + attribute.getName() + ROLE_POSFIX));
 		} else {
-
+			//Creates an OWLDataProperty represeting the attribute
 			owlAttribute = owlDataFactory_.getOWLDataProperty(IRI.create(
 					ontologyIRI_ + POUND_SIGN + PACKAGE_PREFIX + cls.getName() + attribute.getName() + ROLE_POSFIX));
 		}
 
+		//Creates an OWLClassExpression to store the axiom that will bound the class
 		OWLClassExpression owlAllAttofType = null;
+		//Creates the proper axiom taking in consideration if the attribute is from a built-in
+		//type or not
 		if (isBuiltIn) {
 			owlAllAttofType = owlDataFactory_.getOWLDataAllValuesFrom(owlAttribute, owlType);
 		} else {
 			owlAllAttofType = owlDataFactory_.getOWLObjectAllValuesFrom(owlAttObj, owlAttributeTypeCls);
 		}
+		
+		//Bound the OWLClass representing the class with the OWLAxiom representing
+		//the the attribute and it type
 		OWLAxiom subsumsForAll = owlDataFactory_.getOWLSubClassOfAxiom(owlClass, owlAllAttofType);
 		axiomList_.add(subsumsForAll);
 
+		//Creates the OWLAxiom that will restrict the attribute cardinality
 		OWLAxiom subsumsCardinalities;
-
+		
+		//If the lower bound equals zero or the uper bound equals * than there's
+		//no axiom created for the lower bound and the upper bound respectively.
+		//Otherwise, check the combinations for the proper set of axioms
 		if (attribute.getLowerBound() == 0 || attribute.getUpperBound() == -1) {
 			if (attribute.getLowerBound() != 0) {
+				//If the lower bound is not zero, creates an axiom stating
+				//the attribute minimum cardinality.
 				OWLClassExpression owlMin = null;
 				if (isBuiltIn) {
 					owlMin = owlDataFactory_.getOWLDataMinCardinality(attribute.getLowerBound(), owlAttribute);
 				} else {
 					owlMin = owlDataFactory_.getOWLObjectMinCardinality(attribute.getLowerBound(), owlAttObj);
 				}
+				
+				//restricts the attribute with the axiom restricting its cardinality
 				subsumsCardinalities = owlDataFactory_.getOWLSubClassOfAxiom(owlClass, owlMin);
 				axiomList_.add(subsumsCardinalities);
 			}
 			if (attribute.getUpperBound() != -1) {
+				//If the lower bound is not zero, creates an axiom stating
+				//the attribute maximum cardinality.
 				OWLClassExpression owlMax = null;
 				if (isBuiltIn) {
 					owlMax = owlDataFactory_.getOWLDataMaxCardinality(attribute.getUpperBound(), owlAttribute);
 				} else {
 					owlMax = owlDataFactory_.getOWLObjectMaxCardinality(attribute.getUpperBound(), owlAttObj);
 				}
+				
+				//restricts the attribute with the axiom restricting its cardinality
 				subsumsCardinalities = owlDataFactory_.getOWLSubClassOfAxiom(owlClass, owlMax);
 				axiomList_.add(subsumsCardinalities);
 			}
 		} else {
+			//creates an axiom stating the attribute maximum cardinality.
 			OWLClassExpression owlMax = null;
 			if (isBuiltIn) {
 				owlMax = owlDataFactory_.getOWLDataMaxCardinality(attribute.getUpperBound(), owlAttribute);
@@ -679,6 +841,8 @@ public class OntologyCreator {
 				owlMax = owlDataFactory_.getOWLObjectMaxCardinality(attribute.getUpperBound(), owlAttObj);
 			}
 
+			//If the attribute is not an collection creates an axiom using
+			//the short form "Exist" to represent unicity
 			OWLClassExpression intersec;
 			if (attribute.getLowerBound() == 1 && attribute.getUpperBound() == 1) {
 				OWLClassExpression owlExistsAttofType = null;
@@ -690,14 +854,18 @@ public class OntologyCreator {
 
 				intersec = owlDataFactory_.getOWLObjectIntersectionOf(owlExistsAttofType, owlMax);
 			} else {
+				//If the attribute is a collection creates the axiom
+				//representing its lower bound
 				OWLClassExpression owlMin = null;
 				if (isBuiltIn) {
 					owlMin = owlDataFactory_.getOWLDataMinCardinality(attribute.getUpperBound(), owlAttribute);
 				} else {
 					owlMin = owlDataFactory_.getOWLObjectMinCardinality(attribute.getUpperBound(), owlAttObj);
 				}
+				//Creates an axiom representing the restriction from both the upper and lower bound
 				intersec = owlDataFactory_.getOWLObjectIntersectionOf(owlMin, owlMax);
 			}
+			//Restricts the class by its attribute restrictions
 			subsumsCardinalities = owlDataFactory_.getOWLSubClassOfAxiom(owlClass, intersec);
 			axiomList_.add(subsumsCardinalities);
 		}
@@ -725,57 +893,79 @@ public class OntologyCreator {
 	 * 
 	 */
 	protected void makeAttributeAxiomsClass(EClass cls, EAttribute attribute) {
+		//Creates an OWLClass representing the class with the attributes
 		OWLClass owlClass = owlDataFactory_.getOWLClass(IRI.create(String.format(CLASS_NAME_BUILDER, cls.getName())));
-		// .create(ontologyIRI_
-		// + POUND_SIGN + PACKAGE_PREFIX + cls.getName() + CLASS_POSFIX));
-
+		
+		//Creates an OWLClass representing the attribute type
+		//taking in consideration if it is an enumeration or not
 		OWLClass owlAttType;
 		if (attribute.getEAttributeType() instanceof EEnum) {
 			owlAttType = createOWLEnum((EEnum) attribute.getEAttributeType());
 		} else {
 			owlAttType = owlDataFactory_.getOWLClass(
 					IRI.create(String.format(CLASS_NAME_BUILDER, attribute.getEAttributeType().getName())));
-			// .create(ontologyIRI_
-			// + POUND_SIGN + PACKAGE_PREFIX
-			// + attribute.getEAttributeType().getName() + CLASS_POSFIX));
 		}
+		
+		//Creates an OWLObjectProperty representing the attribute
 		OWLObjectProperty owlAttribute = owlDataFactory_.getOWLObjectProperty(IRI.create(
 				ontologyIRI_ + POUND_SIGN + PACKAGE_PREFIX + cls.getName() + attribute.getName() + ROLE_POSFIX));
 
+		//Bounds the attribute to the definined type
 		OWLClassExpression owlAllAttofType = owlDataFactory_.getOWLObjectAllValuesFrom(owlAttribute, owlAttType);
 
+		//Restricts the class as having the attribute
 		OWLAxiom subsumsForAll = owlDataFactory_.getOWLSubClassOfAxiom(owlClass, owlAllAttofType);
-
 		axiomList_.add(subsumsForAll);
 
-		OWLAxiom subsumsCardinalities;
 
+		//Creates the OWLAxiom that will restrict the attribute cardinality
+		OWLAxiom subsumsCardinalities;
+		//If the lower bound equals zero or the uper bound equals * than there's
+		//no axiom created for the lower bound and the upper bound respectively.
+		//Otherwise, check the combinations for the proper set of axioms
 		if (attribute.getLowerBound() == 0 || attribute.getUpperBound() == -1) {
 			if (attribute.getLowerBound() != 0) {
+				//If the lower bound is not zero, creates an axiom stating
+				//the attribute minimum cardinality.
 				OWLClassExpression owlMin = owlDataFactory_.getOWLObjectMinCardinality(attribute.getLowerBound(),
 						owlAttribute);
 				subsumsCardinalities = owlDataFactory_.getOWLSubClassOfAxiom(owlClass, owlMin);
+				
+				//restricts the attribute with the axiom restricting its cardinality
 				axiomList_.add(subsumsCardinalities);
 			}
 			if (attribute.getUpperBound() != -1) {
+				//If the lower bound is not zero, creates an axiom stating
+				//the attribute maximum cardinality.
 				OWLClassExpression owlMax = owlDataFactory_.getOWLObjectMaxCardinality(attribute.getUpperBound(),
 						owlAttribute);
 				subsumsCardinalities = owlDataFactory_.getOWLSubClassOfAxiom(owlClass, owlMax);
+				
+				//restricts the attribute with the axiom restricting its cardinality
 				axiomList_.add(subsumsCardinalities);
 			}
 		} else {
+			//creates an axiom stating the attribute maximum cardinality.
 			OWLClassExpression owlMax = owlDataFactory_.getOWLObjectMaxCardinality(attribute.getUpperBound(),
 					owlAttribute);
+			
+			//If the attribute is not an collection creates an axiom using
+			//the short form "Exist" to represent unicity
 			OWLClassExpression intersec;
 			if (attribute.getLowerBound() == 1 && attribute.getUpperBound() == 1) {
 				OWLClassExpression owlExistsAttofType = owlDataFactory_.getOWLObjectSomeValuesFrom(owlAttribute,
 						owlAttType);
 				intersec = owlDataFactory_.getOWLObjectIntersectionOf(owlExistsAttofType, owlMax);
 			} else {
+				//If the attribute is a collection creates the axiom
+				//representing its lower bound
 				OWLClassExpression owlMin = owlDataFactory_.getOWLObjectMinCardinality(attribute.getUpperBound(),
 						owlAttribute);
+				//Creates an axiom representing the restriction from both the upper and lower bound
 				intersec = owlDataFactory_.getOWLObjectIntersectionOf(owlMin, owlMax);
 			}
+			
+			//Restricts the class by its attribute restrictions
 			subsumsCardinalities = owlDataFactory_.getOWLSubClassOfAxiom(owlClass, intersec);
 			axiomList_.add(subsumsCardinalities);
 		}
@@ -817,17 +1007,12 @@ public class OntologyCreator {
 			boolean isDataType = false;
 			OWLClass owlClass = owlDataFactory_
 					.getOWLClass(IRI.create(String.format(CLASS_NAME_BUILDER, cls.getName())));
-			// .create(ontologyIRI_ + POUND_SIGN + PACKAGE_PREFIX
-			// + cls.getName() + CLASS_POSFIX));
 			if (checkOWLDataType(method.getEType().getName())) {
 				owlReturnTypeDataType = createDataType(method.getEType().getName());
 				isDataType = true;
 			} else {
 				owlReturnTypeClass = owlDataFactory_
 						.getOWLClass(IRI.create(String.format(CLASS_NAME_BUILDER, method.getEType().getName())));
-				// .create(ontologyIRI_ + POUND_SIGN
-				// + PACKAGE_PREFIX + method.getEType().getName() +
-				// CLASS_POSFIX));
 				isDataType = false;
 			}
 
@@ -857,9 +1042,6 @@ public class OntologyCreator {
 		} else {
 			OWLClass operationClass = owlDataFactory_.getOWLClass(IRI.create(
 					String.format(CLASS_NAME_BUILDER, cls.getName() + method.getName() + method.getEType().getName())));
-			// .create(ontologyIRI_ + POUND_SIGN + PACKAGE_PREFIX
-			// + cls.getName() + method.getName()
-			// + method.getEType().getName() + CLASS_POSFIX));
 			Set<OWLClassExpression> elementsForIntersection = new HashSet<OWLClassExpression>();
 			Set<OWLClassExpression> paramTypeForIntersection = new HashSet<OWLClassExpression>();
 
@@ -880,10 +1062,6 @@ public class OntologyCreator {
 
 				OWLClass owlParamRet = owlDataFactory_.getOWLClass(IRI.create(String.format(CLASS_NAME_BUILDER,
 						cls.getName() + method.getName() + eParameter.getEType().getName())));
-				// .create(ontologyIRI_ + POUND_SIGN + PACKAGE_PREFIX
-				// + cls.getName() + method.getName()
-				// + eParameter.getEType().getName()
-				// + CLASS_POSFIX));
 				OWLClassExpression owlAllAttofType = owlDataFactory_.getOWLObjectAllValuesFrom(owlParam, owlParamRet);
 				paramTypeForIntersection.add(owlAllAttofType);
 			}
@@ -897,9 +1075,6 @@ public class OntologyCreator {
 
 			OWLClass owlMetRet = owlDataFactory_.getOWLClass(
 					IRI.create(String.format(CLASS_NAME_BUILDER, cls.getName() + method.getEType().getName())));
-			// .create(ontologyIRI_ + POUND_SIGN + PACKAGE_PREFIX
-			// + cls.getName() + method.getEType().getName()
-			// + CLASS_POSFIX));
 			OWLObjectProperty owlParam = owlDataFactory_.getOWLObjectProperty(IRI.create(ontologyIRI_ + POUND_SIGN
 					+ PACKAGE_PREFIX + cls.getName() + method.getEType().getName() + ROLE_POSFIX));
 			OWLClassExpression owlAllAttofType = owlDataFactory_.getOWLObjectAllValuesFrom(owlParam, owlMetRet);
@@ -913,8 +1088,6 @@ public class OntologyCreator {
 
 			OWLClass owlClass = owlDataFactory_
 					.getOWLClass(IRI.create(String.format(CLASS_NAME_BUILDER, cls.getName())));
-			// .create(ontologyIRI_ + POUND_SIGN + PACKAGE_PREFIX
-			// + cls.getName() + CLASS_POSFIX));
 			OWLAxiom subsumsImplies = owlDataFactory_.getOWLSubClassOfAxiom(owlClass, forAllInverse);
 			axiomList_.add(subsumsImplies);
 		}
@@ -967,29 +1140,14 @@ public class OntologyCreator {
 		OWLObjectProperty roleLeft = owlDataFactory_.getOWLObjectProperty(
 				IRI.create(ontologyIRI_ + POUND_SIGN + PACKAGE_PREFIX + associationRight.getEReferenceType().getName()
 						+ associationLeft.getName() + associationLeft.getEReferenceType().getName() + ROLE_POSFIX));
-		// OWLObjectProperty roleLeft = owlDataFactory_.getOWLObjectProperty(IRI
-		// .create(ontologyIRI_ + POUND_SIGN + PACKAGE_PREFIX
-		// + associationLeft.getEReferenceType().getName()
-		// + associationLeft.getName() + ROLE_POSFIX));
 		OWLClass leftClass = owlDataFactory_.getOWLClass(
 				IRI.create(String.format(CLASS_NAME_BUILDER, associationLeft.getEReferenceType().getName())));
-		// .create(ontologyIRI_ + POUND_SIGN + PACKAGE_PREFIX
-		// + associationLeft.getEReferenceType().getName()
-		// + CLASS_POSFIX));
 		OWLClassExpression forallRoleLeftClass = owlDataFactory_.getOWLObjectAllValuesFrom(roleLeft, leftClass);
 		OWLObjectProperty roleRight = owlDataFactory_.getOWLObjectProperty(
 				IRI.create(ontologyIRI_ + POUND_SIGN + PACKAGE_PREFIX + associationLeft.getEReferenceType().getName()
 						+ associationRight.getName() + associationRight.getEReferenceType().getName() + ROLE_POSFIX));
-		// OWLObjectProperty roleRight =
-		// owlDataFactory_.getOWLObjectProperty(IRI
-		// .create(ontologyIRI_ + POUND_SIGN + PACKAGE_PREFIX
-		// + associationRight.getEReferenceType().getName()
-		// + associationRight.getName() + ROLE_POSFIX));
 		OWLClass rightClass = owlDataFactory_.getOWLClass(
 				IRI.create(String.format(CLASS_NAME_BUILDER, associationRight.getEReferenceType().getName())));
-		// .create(ontologyIRI_ + POUND_SIGN + PACKAGE_PREFIX
-		// + associationRight.getEReferenceType().getName()
-		// + CLASS_POSFIX));
 		OWLClassExpression forallRoleRightClass = owlDataFactory_.getOWLObjectAllValuesFrom(roleRight, rightClass);
 
 		OWLClassExpression inter = owlDataFactory_.getOWLObjectIntersectionOf(forallRoleLeftClass,
@@ -1069,60 +1227,33 @@ public class OntologyCreator {
 	 * covering constraint can be expressed as C \sqsubseteq \sqcup^{n}_{i=1}
 	 * C_i.
 	 */
-	protected void makeGeneralizationAxiom(HashMap<EClass, ArrayList<EClass>> inheritances, EClass father) {
-		List<EClass> sonsList = inheritances.get(father);
-		if (sonsList.size() > 0) {
-
-			// Set<OWLClass> subClasses = new HashSet<OWLClass>();
-			OWLClass fatherowl = owlDataFactory_
-					.getOWLClass(IRI.create(String.format(CLASS_NAME_BUILDER, father.getName())));
-			// .create(ontologyIRI_ + POUND_SIGN + PACKAGE_PREFIX
-			// + father.getName() + CLASS_POSFIX));
-			for (EClass son : sonsList) {
-				OWLClass owlSon = owlDataFactory_
-						.getOWLClass(IRI.create(String.format(CLASS_NAME_BUILDER, son.getName())));
-				// .create(ontologyIRI_ + POUND_SIGN + PACKAGE_PREFIX
-				// + son.getName() + CLASS_POSFIX));
-
-				OWLAxiom myHierarchy = owlDataFactory_.getOWLSubClassOfAxiom(owlSon, fatherowl);
+	protected void makeGeneralizationAxiom(List<EClass> subClasses, EClass superClass) {
+		//Checks if there's any subclass
+		if (subClasses.size() > 0) {
+			//Creates an OWLClass representing the superClass
+			OWLClass superClassOwl = owlDataFactory_
+					.getOWLClass(IRI.create(String.format(CLASS_NAME_BUILDER, superClass.getName())));
+			
+			//Runs through the subclasses list
+			for (EClass sub : subClasses) {
+				//Creates an OWLClass representing the current subclass
+				OWLClass subClassOwl = owlDataFactory_
+						.getOWLClass(IRI.create(String.format(CLASS_NAME_BUILDER, sub.getName())));
+				//Creates an axiom stating that the the subClass concept
+				//is an OWLSubClass of the superClass Concept
+				OWLAxiom myHierarchy = owlDataFactory_.getOWLSubClassOfAxiom(subClassOwl, superClassOwl);
 				axiomList_.add(myHierarchy);
-				// subClasses.add(owlSon);
 			}
-			// ADICIONA A PROPRIEDADE DE ABSTRATO AO SUPERTIPO
-			// if (father.getEAnnotations().size() > 0) {
-			// if (father.getEAnnotations().get(0).getSource()
-			// .contains("complete")) {
-			// if (subClasses.size() > 0) {
-			// OWLObjectUnionOf unionOfSubClasses = owlDataFactory_
-			// .getOWLObjectUnionOf(subClasses);
-			// OWLAxiom unionClassAxiom = owlDataFactory_
-			// .getOWLSubClassOfAxiom(fatherowl,
-			// unionOfSubClasses);
-			// axiomList_.add(unionClassAxiom);
-			// }
-			// }
-			// if (father.getEAnnotations().get(0).getSource()
-			// .contains("disjoint")) {
-			// OWLDisjointClassesAxiom dijointClassExpression = owlDataFactory_
-			// .getOWLDisjointClassesAxiom(subClasses);
-			// axiomList_.add(dijointClassExpression);
-			// }
-			// }
-			// if (subClasses.size() > 0) {
-			// if (subClasses.size() > 1) {
-			// OWLDisjointClassesAxiom dijointClassExpression = owlDataFactory_
-			// .getOWLDisjointClassesAxiom(subClasses);
-			// axiomList_.add(dijointClassExpression);
-			// }
-			// OWLObjectUnionOf unionOfSubClasses = owlDataFactory_
-			// .getOWLObjectUnionOf(subClasses);
-			// OWLAxiom unionClassAxiom = owlDataFactory_
-			// .getOWLSubClassOfAxiom(fatherowl, unionOfSubClasses);
-			// axiomList_.add(unionClassAxiom);
-			// }
 		}
 	}
 
+	/**
+	 * Creates the proper OWLDatatype based on the typeName provided
+	 * 
+	 * @param typeName
+	 * 		The attribute name to be created as an OWLDataType
+	 * @return
+	 */
 	public OWLDatatype createDataType(String typeName) {
 		OWLDatatype owlType;
 		if (typeName.equals("EInt") || typeName.equals("OWLInteger") || typeName.equals("OWLint")) {
@@ -1138,12 +1269,28 @@ public class OntologyCreator {
 						owlType = owlDataFactory_.getBooleanOWLDatatype();
 					} else {
 						owlType = null;
-						// owlType = owlDataFactory_.getOWLDatatype(IRI
-						// .create(ontologyIRI_ + POUND_SIGN + typeName));
 					}
 				}
 			}
 		}
 		return owlType;
+	}
+
+	/**
+	 * Verifies whether an given attribute can be represented as a OWL build-int datataype or not
+	 * based on the typename provided
+	 * 
+	 * @param typeName
+	 * 		The attribute name to be checked
+	 * @return
+	 */
+	protected boolean checkOWLDataType(String typeName) {
+		if (typeName.equals("EInt") || typeName.equals("EFloat") || typeName.equals("EDouble")
+				|| typeName.equals("OWLInteger") || typeName.equals("OWLint") || typeName.equals("OWLfloat")
+				|| typeName.equals("EBoolean") || typeName.equals("OWLdouble") || typeName.equals("OWLboolean")) {
+			return true;
+		} else {
+			return false;
+		}
 	}
 }
