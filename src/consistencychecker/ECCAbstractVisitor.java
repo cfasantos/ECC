@@ -59,7 +59,7 @@ public class ECCAbstractVisitor extends
 	public StackExp currentSt;
 	public IRI ontologyIRI_;
 
-	public ECCAbstractVisitor(String context, IRI ontoIRI, String pkg) {
+	public ECCAbstractVisitor(IRI ontoIRI, String pkg) {
 		super();
 		mainSt = new StackExp(null, ontoIRI, pkg);
 		currentSt = mainSt;
@@ -67,47 +67,87 @@ public class ECCAbstractVisitor extends
 		ontologyIRI_ = ontoIRI;
 	}
 
-	public void stack(OCLExpression<EClassifier> c, boolean b) {
-		currentSt = currentSt.push(c, b);
+	/**
+	 * Stores the OCL Expression in a multi-level stack
+	 * 
+	 * @param expression
+	 * 		The expression that will be added to the stack representing the whole expression
+	 * @param toInnerStack
+	 * 		If "true", then the current stack will be changed to a inner level in the stack
+	 */
+	public void stack(OCLExpression<EClassifier> expression, boolean toInnerStack) {
+		currentSt = currentSt.push(expression, toInnerStack);
 	}
 
-	public void stackIntoSonWithNoUpdate(OCLExpression<EClassifier> c, boolean b) {
-		currentSt.pushToSon(c, b);
+	/**
+	 * Stores the OCL Expression in the inner stack of the multi-level stack
+	 * 
+	 * @param expression
+	 * 		The expression that will be added to the stack
+	 * @param update
+	 * 		If "true", then the current stack will be changed to a inner level in the stack
+	 */
+	public void stackIntoSon(OCLExpression<EClassifier> expression, boolean update) {
+		if(update){
+			currentSt = currentSt.pushToSon(expression, update);
+		}else{
+			currentSt.pushToSon(expression, update);
+		}
 	}
 
-	public void stackIntoSonWithUpdate(OCLExpression<EClassifier> c, boolean b) {
-		currentSt = currentSt.pushToSon(c, b);
-	}
-
+	/**
+	 * Sets the current stack as the upper level in the multi-level stack
+	 */
 	public void endStack() {
 		currentSt = currentSt.fatherStack;
 	}
 
-	public void changeUpElementToSelect() {
+	/**
+	 * Normalization method used when normalizing OCL iterators. Change the iterator Expression to a select.
+	 */
+	private void changeUpElementToSelect() {
+		//Changes the element at top of the stack (currently being normalized) to a select expression
 		currentSt.changeUpElementToSelect();
 	}
 
+	/**
+	 * Normalization method used to find the next "Select" iterator in the multi-level stack
+	 */
 	public void endStackUntilSelect() {
 		while (!(currentSt.getTopElementExpression() instanceof IteratorExp)) {
 			currentSt = currentSt.fatherStack;
 		}
 	}
 
+	/**
+	 * Normalize OCL Expressions that are Property calls
+	 * 
+	 * @see <a href="http://www.inf.unibz.it/~calvanese/papers-html/DL-2012-ocl.html" target=
+	 *  _blank>OCL-Lite: A Decidable (Yet Expressive) Fragment of OCL/a>
+	 * 
+	 */
 	@Override
 	public OWLClassExpression handlePropertyCallExp(PropertyCallExp<EClassifier, EReference> callExp,
 			OWLClassExpression sourceResult, List<OWLClassExpression> qualifierResults) {
 		stack(callExp, false);
+		//Checks if the property is being applied on an iterator
 		if (callExp.eContainer() != null && callExp.eContainer().eContainer() != null
 				&& callExp.eContainer().eContainer().eContainer() instanceof IteratorExp) {
+			//Instantiates a variable representing the iterator
 			IteratorExp<EClassifier, EParameter> fatherExp = (IteratorExp<EClassifier, EParameter>) callExp.eContainer()
 					.eContainer().eContainer();
+			//Checks if the iterator is being applied on other iterator
 			if (fatherExp.getSource() instanceof CollectionLiteralExp) {
+				//Checks if 
 				if (((CollectionItem) ((CollectionLiteralExp) fatherExp.getSource()).getPart().get(0))
 						.getItem() == callExp) {
+					//Stacks the iterator in the inner stack of the current stackExp
 					stack(fatherExp, true);
 				}
 			}
+			//Checks the Iterator is being directly restricted by the property being normalized
 			if (fatherExp.getBody() == callExp) {
+				//Ends the stack representing the iterator
 				endStack();
 			}
 		} else {
@@ -127,57 +167,93 @@ public class ECCAbstractVisitor extends
 		return result;
 	}
 
+	/**
+	 * Normalize OCL Expressions that are Iterators
+	 * 
+	 * @see <a href="http://www.inf.unibz.it/~calvanese/papers-html/DL-2012-ocl.html" target=
+	 *  _blank>OCL-Lite: A Decidable (Yet Expressive) Fragment of OCL</a>
+	 * 
+	 */
 	@Override
 	public OWLClassExpression handleIteratorExp(IteratorExp<EClassifier, EParameter> callExp,
 			OWLClassExpression sourceResult, List<OWLClassExpression> argumentResults, OWLClassExpression bodyResult) {
-		if (callExp.getName().equals("exists")) {
+		//Verifies the iterator being handled and executes the proper normalization process
+		switch(callExp.getName()){
+		//Apply the normalization described in "rule a)", "Table 1" from the paper 
+		//"OCL-Lite: A Decidable (Yet Expressive) Fragment of OCL"  
+		case "exists":
+			//Change the top stacked element from an "exists" to "select"
 			changeUpElementToSelect();
+			//Creates an "notEmpty" Operator
 			EOperation notEmpty = EcoreFactoryImpl.eINSTANCE.createEOperation();
 			notEmpty.setName("notEmpty");
-			OperationCallExp<EClassifier, EOperation> OpCallExp = ExpressionsFactory.eINSTANCE.createOperationCallExp();
-			OpCallExp.setReferredOperation(notEmpty);
-			stack(OpCallExp, false);
-		} else {
-			if (callExp.getName().equals("forAll")) {
-				changeUpElementToSelect();
-				// Inserts a not into Son
-				EOperation not = EcoreFactoryImpl.eINSTANCE.createEOperation();
-				not.setName("not");
-				OperationCallExp<EClassifier, EOperation> OpCallExpNot = ExpressionsFactory.eINSTANCE
+			OperationCallExp<EClassifier, EOperation> notEmptyExp = ExpressionsFactory.eINSTANCE.createOperationCallExp();
+			notEmptyExp.setReferredOperation(notEmpty);
+			//Adds the "notEmpty" Operator at the stack
+			stack(notEmptyExp, false);
+			break;
+		//Apply the normalization described in "rule b)", "Table 1" from the paper 
+		//"OCL-Lite: A Decidable (Yet Expressive) Fragment of OCL"  
+		case "forall":
+			//Change the top stacked element from an "forall" to "select"
+			changeUpElementToSelect();
+			//Creates an "not" Operator
+			EOperation not = EcoreFactoryImpl.eINSTANCE.createEOperation();
+			not.setName("not");
+			OperationCallExp<EClassifier, EOperation> OpCallExpNot = ExpressionsFactory.eINSTANCE
+					.createOperationCallExp();
+			OpCallExpNot.setReferredOperation(not);
+			//Adds the "not" Operator at the stack representing the condition in the "forall" operator
+			stackIntoSon(OpCallExpNot, false);
+			EOperation isEmpty = EcoreFactoryImpl.eINSTANCE.createEOperation();
+			//Creates an "isEmpty" Operator
+			isEmpty.setName("isEmpty");
+			OperationCallExp<EClassifier, EOperation> OpCallExpNotEmpty = ExpressionsFactory.eINSTANCE
+					.createOperationCallExp();
+			OpCallExpNotEmpty.setReferredOperation(isEmpty);
+			stack(OpCallExpNotEmpty, false);
+			//Add the "isEmpty" operator at the top of the stack
+			break;
+		//Apply the normalization described in "rule c)", "Table 1" from the paper 
+		//"OCL-Lite: A Decidable (Yet Expressive) Fragment of OCL"
+		case "select":
+			//Checks if the "select" iterator is applied in sequence with another "select" iterator
+			if (callExp.eContainer() instanceof IteratorExp) {
+				//creates an "and" operator
+				EOperation and = EcoreFactoryImpl.eINSTANCE.createEOperation();
+				and.setName("and");
+				OperationCallExp<EClassifier, EOperation> OpCallExpAnd = ExpressionsFactory.eINSTANCE
 						.createOperationCallExp();
-				OpCallExpNot.setReferredOperation(not);
-				stackIntoSonWithNoUpdate(OpCallExpNot, false);
-				// inserts a isEmpty na pilha corrente
-				EOperation isEmpty = EcoreFactoryImpl.eINSTANCE.createEOperation();
-				isEmpty.setName("isEmpty");
-				OperationCallExp<EClassifier, EOperation> OpCallExpNotEmpty = ExpressionsFactory.eINSTANCE
-						.createOperationCallExp();
-				OpCallExpNotEmpty.setReferredOperation(isEmpty);
-				stack(OpCallExpNotEmpty, false);
+				OpCallExpAnd.setReferredOperation(and);
+				//Includes the "and" operator in the stack
+				stackIntoSon(OpCallExpAnd, true);
 			} else {
-				if (callExp.getName().equals("select")) {
-					if (callExp.eContainer() instanceof IteratorExp) {
-						EOperation and = EcoreFactoryImpl.eINSTANCE.createEOperation();
-						and.setName("and");
-						OperationCallExp<EClassifier, EOperation> OpCallExpAnd = ExpressionsFactory.eINSTANCE
-								.createOperationCallExp();
-						OpCallExpAnd.setReferredOperation(and);
-						stackIntoSonWithUpdate(OpCallExpAnd, true);
-					} else {
-						if (callExp.getSource() instanceof IteratorExp) {
-							endStackUntilSelect();
-						}
-					}
+				//If the select operator isn't applied in sequence with another "select" iterator
+				//But rather as a condition in a iterator, then changes the current stack
+				//to the first "select" operator in the stack
+				if (callExp.getSource() instanceof IteratorExp) {
+					endStackUntilSelect();
 				}
 			}
+			break;
+		default:
+			break;
 		}
-
+		//Returns a mockup variable, always null
 		return result;
 	}
 
+	/**
+	 * Normalize OCL Expressions that are Operations
+	 * 
+	 * @see <a href="http://www.inf.unibz.it/~calvanese/papers-html/DL-2012-ocl.html" target=
+	 *  _blank>OCL-Lite: A Decidable (Yet Expressive) Fragment of OCL/a>
+	 * 
+	 */
 	@Override
 	public OWLClassExpression handleOperationCallExp(OperationCallExp<EClassifier, EOperation> callExp,
 			OWLClassExpression sourceResult, List<OWLClassExpression> argumentResults) {
+		//Checks if the operation being normalized is an conjunction, disjunction or implication
 		if (callExp.getReferredOperation().getName().equals("and")
 				|| callExp.getReferredOperation().getName().equals("or")
 				|| callExp.getReferredOperation().getName().equals("implies")) {
@@ -192,8 +268,10 @@ public class ECCAbstractVisitor extends
 				}
 			}
 		} else {
+			//Check if the Operation being normalized is an ocl type verification or conversion
 			if (callExp.getReferredOperation().getName().equals("oclIsTypeOf")
 					|| callExp.getReferredOperation().getName().equals("oclAsType")) {
+				//Stacks the OCL type operator
 				stack(callExp, false);
 			} else {
 				if (callExp.getReferredOperation().getName().equals("size")) {
@@ -223,12 +301,17 @@ public class ECCAbstractVisitor extends
 							}
 							stack(callExp, false);
 						} else {
+							//Checks if the operation beign normalized is an "not" operator
 							if (callExp.getReferredOperation().getName().equals("not")) {
+								//Checks if the expression to which the operator "not" is applied is also an operator expression.
 								if (callExp.getSource() instanceof OperationCallExp) {
-									OperationCallExp<EClassifier, EOperation> son = (OperationCallExp<EClassifier, EOperation>) callExp
+									//Stores the expression to which the operator "not" is applied in the "targetExpression" variable
+									OperationCallExp<EClassifier, EOperation> targetExpression = (OperationCallExp<EClassifier, EOperation>) callExp
 											.getSource();
-									if (!son.getReferredOperation().getName().equals("notEmpty")
-											&& !son.getReferredOperation().getName().equals("isEmpty")) {
+									//Checks if the targeted expression of the "not" operator isn't a verification for Emptiness.
+									if (!targetExpression.getReferredOperation().getName().equals("notEmpty")
+											&& !targetExpression.getReferredOperation().getName().equals("isEmpty")) {
+										//Stacks the "not" operator 
 										stack(callExp, false);
 									}
 								}
@@ -238,9 +321,11 @@ public class ECCAbstractVisitor extends
 				}
 			}
 		}
+		//Checks if the operation being normalized is contained in another operation
 		if (callExp.eContainer() instanceof OperationCallExp) {
 			OperationCallExp<EClassifier, EOperation> fatherExp = (OperationCallExp<EClassifier, EOperation>) callExp
 					.eContainer();
+			//Checks if the operation being normalized is an conjunction, disjunction or implication
 			if (fatherExp.getReferredOperation().getName().equals("and")
 					|| fatherExp.getReferredOperation().getName().equals("or")
 					|| fatherExp.getReferredOperation().getName().equals("implies")) {
@@ -265,6 +350,7 @@ public class ECCAbstractVisitor extends
 
 			}
 		}
+		//Returns a mockup variable, always null
 		return result;
 	}
 }

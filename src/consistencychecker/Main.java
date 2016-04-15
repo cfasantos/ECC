@@ -132,12 +132,15 @@ public class Main {
 	private static final String LOG_STARTING_PRINTING_EQUIVALENCE = "\nStarting to print equivalence classes message.";
 	private static final String LOG_ENDED_PRINTING_EQUIVALENCE = "\nEnded equivalence classes message printing.";
 
+	// Checker where the model is stored after parsed and consistency calculation are done.
 	private static ConsistencyChecker checker = null;
+	
+	// The name of the file being checked for consistency
 	private static String file_name;
 
 	/**
 	 * Standard use of ECC, as a stand-alone command line application will
-	 * follow be handled by this function
+	 * be handled by this function
 	 * 
 	 * @param args
 	 *            Command line arguments feed though standard input

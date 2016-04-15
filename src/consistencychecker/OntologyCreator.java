@@ -401,7 +401,7 @@ public class OntologyCreator {
 		
 		for (EClass classe : classes) {
 
-			// Assures that every class has a name.
+			// Ensures that every class has a name.
 			if (classe.getName() == null || classe.getName().equals(SPACE)
 					|| classe.getName().equals(Constants.EMPTY_STRING) || classe.getName().equals(NULL)) {
 				classe.setName(CLASS_POSFIX + UNDERSCORE + classCounter);
@@ -412,7 +412,7 @@ public class OntologyCreator {
 			classe.setName(classe.getName().replaceAll(SPACE, Constants.EMPTY_STRING));
 
 			for (EAttribute attribute : classe.getEAllAttributes()) {
-				// Assures that every attribute has a name.
+				// Ensures that every attribute has a name.
 				if (attribute.getName() == null || attribute.getName().equals(SPACE)
 						|| attribute.getName().equals(Constants.EMPTY_STRING) || attribute.getName().equals(NULL)) {
 					attribute.setName(ATTRIBUTE_POSFIX + UNDERSCORE + attrCounter);
@@ -420,7 +420,7 @@ public class OntologyCreator {
 							ATTRIBUTE_POSFIX + UNDERSCORE + attrCounter));
 					attrCounter++;
 				}
-				// Assures that every attribute has a type
+				// Ensures that every attribute has a type
 				if (attribute.getEType() == null) {
 					throw new ConsistencyCheckerGenericException(ILL_FORMED_TYPELESS_ATTR_EXCEPTION);
 				}
@@ -428,7 +428,7 @@ public class OntologyCreator {
 			}
 
 			for (EOperation method : classe.getEAllOperations()) {
-				// Assures that every method has a name.
+				// Ensures that every method has a name.
 				if (method.getName() == null || method.getName().equals(SPACE)
 						|| method.getName().equals(Constants.EMPTY_STRING) || method.getName().equals(NULL)) {
 					method.setName(METHOD_POSFIX + UNDERSCORE + methCounter);
@@ -436,12 +436,12 @@ public class OntologyCreator {
 							METHOD_POSFIX + UNDERSCORE + methCounter));
 					methCounter++;
 				}
-				// Assures that every method has a type
+				// Ensures that every method has a type
 				if (method.getEType() == null) {
 					throw new ConsistencyCheckerGenericException(ILL_FORMED_TYPELESS_METHOD_PARAMETER_EXCEPTION);
 				}
 
-				//Assures that every parameter has a type
+				//Ensures that every parameter has a type
 				for (EParameter eParameter : method.getEParameters()) {
 					if (eParameter.getEType() == null) {
 						throw new ConsistencyCheckerGenericException(ILL_FORMED_TYPELESS_METHOD_PARAMETER_EXCEPTION);
@@ -466,7 +466,7 @@ public class OntologyCreator {
 
 		for (EReference association : associations) {
 			
-			//Assures that every association has a name
+			//Ensures that every association has a name
 			if (association.getName() == null || association.getName().equals(Constants.EMPTY_STRING)
 					|| association.getName().equals(NULL)) {
 				association.setName(ASSOCIATION_POSFIX + UNDERSCORE + assocCounter);
@@ -475,26 +475,26 @@ public class OntologyCreator {
 				assocCounter++;
 			}
 			
-			//Assures that every association has an oposite end
+			//Ensures that every association has an opposite end
 			if (association.getEOpposite() == null) {
 				throw new ConsistencyCheckerGenericException(
 						String.format(ILL_FORMED_ASSOCIATIONEND_NO_OPOSITE, association.getName()));
 			}
 			
-			//Assures no upper bound in association is equals to zero or smaller than -1 
+			//Ensures no upper bound in association is equals to zero or smaller than -1 
 			//-1 is the numeric representation for *
 			if (association.getUpperBound() == 0 || association.getUpperBound() < -1) {
 				throw new ConsistencyCheckerGenericException(
 						String.format(ILL_FORMED_ASSOCIATIONEND_MULTIPLICITY_ERROR, association.getName()));
 			}
 			
-			//Assures no lower bound is smaller than zero
+			//Ensures no lower bound is smaller than zero
 			if (association.getLowerBound() < 0) {
 				throw new ConsistencyCheckerGenericException(
 						String.format(ILL_FORMED_ASSOCIATIONEND_MULTIPLICITY_ERROR, association.getName()));
 			}
 			
-			//Assures no lower bound is bigger than the upeer bound in the same association
+			//Ensures no lower bound is bigger than the upper bound in the same association
 			if (association.getUpperBound() > 0 && association.getLowerBound() > 0) {
 				if (association.getUpperBound() < association.getLowerBound()) {
 					throw new ConsistencyCheckerGenericException(
@@ -615,10 +615,12 @@ public class OntologyCreator {
 	 * @param cls
 	 * 		Class containing the OCL invariant
 	 * @param par
-	 * 		
+	 * @see <a href="http://www.inf.unibz.it/~calvanese/papers-html/DL-2012-ocl.html" target=
+ *      _blank>OCL-Lite: A Decidable (Yet Expressive) Fragment of OCL/a>
+	 * 
 	 * @throws ParserException
 	 */
-	protected void makeInvariantAxioms(EClass cls, Entry<String, String> par) throws ParserException {
+	protected void makeInvariantAxioms(EClass cls, Entry<String, String> note) throws ParserException {
 		OCL<EPackage, EClassifier, EOperation, EStructuralFeature, EEnumLiteral, EParameter, EObject, CallOperationAction, SendSignalAction, Constraint, EClass, EObject> ocl = OCL
 				.newInstance(EcoreEnvironmentFactory.INSTANCE);
 		OCLHelper<EClassifier, EOperation, EStructuralFeature, Constraint> helper = ocl.createOCLHelper();
@@ -627,28 +629,35 @@ public class OntologyCreator {
 		helper.setContext(cls);
 		
 		//Stores the original expression text on the expOriginal String
-		String expOriginal = par.getValue();
+		String expOriginal = note.getValue();
 		
 		//Creates an OCLExpression based on text provided
 		OCLExpression<EClassifier> invariant = helper.createQuery(expOriginal);
 		
 		//Creates an abstract visitor to store to store the OCL expression in a stack form
 		//and resolve it to a class expression
-		ECCAbstractVisitor visit = new ECCAbstractVisitor(cls.getName(), ontologyIRI_, PACKAGE_PREFIX);
-		//Makes the first iteraction on the invariant
-		invariant.accept(visit);
+		ECCAbstractVisitor visitor = new ECCAbstractVisitor(ontologyIRI_, PACKAGE_PREFIX);
+		//The "accept" method will instantiate the inner structures of the visitor
+		//and apply the normalization rules described in the "OCL-Lite: A Decidable (Yet Expressive) Fragment of OCL" article
+		//Note that in order to fully normalize the expression, the rules may need to be applied several times
+		invariant.accept(visitor);
 		
 		//Loops through the execution until the main stack remains unchanged
-		while (!expOriginal.equals(visit.mainSt.print())) {
-			expOriginal = visit.mainSt.print();
+		//meaning that the expression is fully normalized
+		while (!expOriginal.equals(visitor.mainSt.print())) {
+			//Stores the current state of the expression in the expOriginal variable
+			expOriginal = visitor.mainSt.print();
+			//Creates an OCLExpression based on the current ocl text
 			invariant = helper.createQuery(expOriginal);
-			visit = new ECCAbstractVisitor(cls.getName(), ontologyIRI_, PACKAGE_PREFIX);
-			invariant.accept(visit);
+			//reinstantiate the visitor to clear its inner structures
+			visitor = new ECCAbstractVisitor(ontologyIRI_, PACKAGE_PREFIX);
+			//Apply normalization rules
+			invariant.accept(visitor);
 		}
 		
 		//Once the expression is properly stored in stack form
 		//the same is mapped to an OWL class expression
-		OWLClassExpression invInDl = visit.mainSt.resolveStack();
+		OWLClassExpression invInDl = visitor.mainSt.resolveStack();
 		
 		//Creates an OWL class representing the class that holds the invariant
 		OWLClass alfa = owlDataFactory_.getOWLClass(

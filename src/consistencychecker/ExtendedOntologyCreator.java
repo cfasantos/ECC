@@ -83,6 +83,7 @@ public class ExtendedOntologyCreator extends OntologyCreator {
 	}
 
 	/**
+	 * Extends the created ontology with axioms representing an object model instance of the UML class model
 	 * 
 	 * @param objectModelPath Full path for the .XMI representing the object model
 	 * @return returns an OWLOntology representing the 
@@ -108,6 +109,8 @@ public class ExtendedOntologyCreator extends OntologyCreator {
 	}
 
 	/**
+	 * Inserts into the ontology being created the axioms representing the association
+	 * between the objects at the object mode
 	 * 
 	 * @param objectPoolSimplified
 	 * 			Pool of TObjects representing the objects in the object model.
@@ -163,13 +166,14 @@ public class ExtendedOntologyCreator extends OntologyCreator {
 	}
 
 	/**
+	 * Inserts into the ontology being created the axioms representing the links in the object model
 	 * 
 	 * @param objs
 	 * 			Mapping relating a list of objects to its class
 	 * @param links
 	 * 			Mapping relating an association to a map of objects and links that implement such association
 	 */
-	public void insertLinksAxioms(Map<String, ArrayList<TObject>> objs,
+	private void insertLinksAxioms(Map<String, ArrayList<TObject>> objs,
 			Map<String, HashMap<TObject, ArrayList<TLink>>> links) { 
 		
 		//Runs through the associations list
@@ -257,12 +261,12 @@ public class ExtendedOntologyCreator extends OntologyCreator {
 					OWLClass owlObject = owlDataFactory_.getOWLClass(
 							IRI.create(ontologyIRI_ + POUND_SIGN + PACKAGE_PREFIX + currentSourceObject.getId() + OBJECT_POSFIX));
 					
-					//Creates and OWL Object Property represeting the object class association
+					//Creates and OWL Object Property representing the object class association
 					OWLObjectProperty owlEr = owlDataFactory_.getOWLObjectProperty(IRI.create(
 							ontologyIRI_ + POUND_SIGN + PACKAGE_PREFIX + currentAssociation.getEOpposite().getEReferenceType().getName()
 									+ currentAssociation.getName() + currentAssociation.getEReferenceType().getName() + ROLE_POSFIX));
 					
-					//Creates an OWLClass represeting the current target object
+					//Creates an OWLClass representing the current target object
 					OWLClass owlObjectTarget = owlDataFactory_
 							.getOWLClass(IRI.create(ontologyIRI_ + POUND_SIGN + PACKAGE_PREFIX
 									+ objs.get(link.getType()).get(link.getPosition()).getId() + OBJECT_POSFIX));

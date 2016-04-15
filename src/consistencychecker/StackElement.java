@@ -30,29 +30,55 @@ import org.semanticweb.owlapi.model.IRI;
  */
 public class StackElement {
 
+	//OCLExpression stored in this StackElement
 	private OCLExpression<EClassifier> exp;
-	public StackExp sourceStack;
+	//This StackElement inner stack
+	public StackExp innerStack;
 
-	public void setExp(OCLExpression<EClassifier> c) {
-		exp = c;
+	public void setExp(OCLExpression<EClassifier> expression) {
+		exp = expression;
 	}
 
-	public OCLExpression<EClassifier> getExp() {
-		return exp;
+
+	/**
+	 * Inserts the provided Expression into the this StackElement inner stack
+	 * @param expression
+	 * 		The expression to be inserted
+	 * @param toInnerStack
+	 * 		Indicates if the expression should be inserted directly in the "sourceStack" inner stack
+	 * 		or in the inner stack of its top element.
+	 */
+	public void push(OCLExpression<EClassifier> expression, boolean toInnerStack) {
+		innerStack.push(expression, toInnerStack);
 	}
 
-	public void push(OCLExpression<EClassifier> c, boolean toSon) {
-		sourceStack.push(c, toSon);
-	}
-
+	/**
+	 * 
+	 * @param father
+	 * 		A pointer to the StackExp containing this StackElement if any.
+	 * @param ontoIRI
+	 * 		The ontology IRI for building concepts
+	 * @param pkg
+	 * 		The package name where the OCL constraint is contained
+	 */
 	public StackElement(StackExp father, IRI ontoIRI, String pkg) {
-		sourceStack = new StackExp(father, ontoIRI, pkg);
+		innerStack = new StackExp(father, ontoIRI, pkg);
 	}
 
+	/**
+	 * Fires the event at the top element at the inner stack recursively untils reach a stack
+	 * where the "pushToSon" variable is set to false. Then, sets the fatherStack "pushToSon" variable to false.
+	 */
 	public void endStack() {
-		sourceStack.endStack();
+		innerStack.endStack();
 	}
 
+	
+	/**
+	 * Returns the OCL Expression stored at this StackElement
+	 * @return
+	 * 		The OCL Expression stored at this StackElement
+	 */
 	public OCLExpression<EClassifier> getExpression() {
 		return exp;
 	}
